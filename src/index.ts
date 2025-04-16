@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import ps from 'path';
+import fp from 'path';
 import yaml from 'js-yaml';
 
 import {
@@ -122,6 +122,10 @@ type Action = {
   data: Hex;
 };
 
+type Lock = {
+  nonces: Record<string, number>,
+};
+
 const parseArgs = (): Args => {
   console.log();
   console.log('Roar 🏎️');
@@ -188,6 +192,42 @@ const parseArgs = (): Args => {
   return args;
 };
 
+const checkFileExists = async (path: string): Promise<boolean> => {
+  try {
+    await fs.access(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const parseDirectory = (path: string): string => {
+  return fp.parse(path).dir;
+};
+
+const createDirectory = async (path: string): Promise<void> => {
+  await fs.mkdir(path, { recursive: true });
+};
+
+const createFileDirectory = async (path: string): Promise<void> => {
+  const fileExists = await checkFileExists(path);
+  if (fileExists) {
+    return;
+  }
+
+  const directory = parseDirectory(path);
+  if (!directory) {
+    return;
+  }
+
+  const directoryExists = await checkFileExists(directory);
+  if (directoryExists) {
+    return;
+  }
+
+  await createDirectory(directory);
+};
+
 const loadText = async (path: string): Promise<string> => {
   const text = await fs.readFile(path, 'utf-8');
   return text;
@@ -203,6 +243,15 @@ const loadJson = async (path: string): Promise<any> => {
   const text = await loadText(path);
   const object = JSON.parse(text);
   return object;
+};
+
+const saveText = async (path: string, text: string): Promise<void> => {
+  await fs.writeFile(path, text);
+};
+
+const saveYaml = async (path: string, object: any): Promise<void> => {
+  const text = yaml.dump(object);
+  await saveText(path, text);
 };
 
 const loadConfig = async (path: string): Promise<Config> => {
@@ -279,6 +328,50 @@ const loadPlan = async (path: string, deployer: Address): Promise<Plan> => {
   return plan as Plan;
 };
 
+const loadLock = async (path: string): Promise<Lock | null> => {
+  console.log();
+  console.log('Lock:');
+  console.log(`- path: ${path}`);
+
+  const lockExists = await checkFileExists(path);
+  console.log(`- status: ${lockExists ? 'exists 🪺' : 'does not exist 🪹'}`);
+  if (!lockExists) {
+    return null;
+  }
+
+  const lock = await loadYaml(path);
+
+  if (typeof lock.nonces !== 'object' || Array.isArray(lock.nonces)) {
+    throw new Error('Invalid lock "nonces" field (object expected)');
+  }
+
+  for (const nonce of Object.values(lock.nonces)) {
+    if (typeof nonce !== 'number' || nonce < 0) {
+      throw new Error('Invalid lock "nonces" field value (non-negative number expected)');
+    }
+  }
+
+  console.log(`- chain nonces (${Object.keys(lock.nonces).length}):`);
+  for (const [chainName, nonce] of Object.entries(lock.nonces)) {
+    console.log(`  - ${chainName}: ${nonce}`);
+  }
+  return lock as Lock;
+};
+
+const saveLock = async (path: string, lock: Lock): Promise<void> => {
+  console.log();
+  console.log('Lock save:');
+  console.log(`- path: ${path}`);
+  console.log(`- chain nonces (${Object.keys(lock.nonces).length}):`);
+  for (const [chainName, nonce] of Object.entries(lock.nonces)) {
+    console.log(`  - ${chainName}: ${nonce}`);
+  }
+
+  await createFileDirectory(path);
+  await saveYaml(path, lock);
+  console.log('- status: saved 🪺');
+};
+
 const discoverArtifactPaths = async (path: string): Promise<Map<string, string>> => {
   const entries = await fs.readdir(path, { recursive: true, withFileTypes: true });
   const artifactPaths = new Map<string, string>();
@@ -289,7 +382,7 @@ const discoverArtifactPaths = async (path: string): Promise<Map<string, string>>
       entry.name.endsWith('.json')
     ) {
       const artifactName = entry.name.slice(0, -'.json'.length);
-      const artifactPath = ps.join(entry.parentPath, entry.name);
+      const artifactPath = fp.join(entry.parentPath, entry.name);
       const existingPath = artifactPaths.get(artifactName);
       if (existingPath != null) {
         throw new Error(`Artifact "${artifactName}" path duplicate ("${artifactPath}" vs "${existingPath}")`);
@@ -386,7 +479,20 @@ const extractChainPlans = (plan: Plan): Map<string, Plan> => {
 const resolveChainClients = async (
   deployer: PrivateKeyAccount,
   chainPlans: ReadonlyMap<string, Plan>,
+  locksPath: string,
+  planPath: string,
 ): Promise<Map<string, ChainClients>> => {
+  const lockPath = fp.join(locksPath, planPath);
+  const lock = await loadLock(lockPath);
+
+  if (lock != null) {
+    const lockChains = Object.keys(lock.nonces).sort().join(', ');
+    const planChains = [...chainPlans.keys()].sort().join(', ');
+    if (lockChains !== planChains) {
+      throw new Error(`Lock "${lockPath}" chains "${lockChains}" are not the same as the plan chains "${planChains}"`);
+    }
+  }
+
   const chainClients = new Map<string, ChainClients>();
   for (const chainName of chainPlans.keys()) {
     const chain = CHAINS.get(chainName)!;
@@ -409,9 +515,22 @@ const resolveChainClients = async (
     chainClients.set(chainName, clients);
   }
 
-  await Promise.all(chainClients.values().map(async (clients) => {
-    clients.nonce = await clients.public.getTransactionCount({ address: deployer.address });
-  }));
+  if (lock == null) {
+    const newLock: Lock = {
+      nonces: {},
+    };
+
+    await Promise.all(chainClients.entries().map(async ([chainName, clients]) => {
+      clients.nonce = await clients.public.getTransactionCount({ address: deployer.address });
+      newLock.nonces[chainName] = clients.nonce;
+    }));
+
+    await saveLock(lockPath, newLock);
+  } else {
+    for (const [chainName, clients] of chainClients) {
+      clients.nonce = lock.nonces[chainName];
+    }
+  }
 
   console.log();
   console.log(`Chain clients (${chainClients.size}):`);
@@ -798,9 +917,9 @@ const resolveChainStepActions = (
       );
     }
 
-    const trySignature = (signature: string): AbiFunction | undefined => {
+    const trySignature = (signature: string): AbiFunction | null => {
       if (!signatures.has(signature)) {
-        return undefined;
+        return null;
       }
 
       const func = artifact.functions.get(signature)!;
@@ -1006,7 +1125,7 @@ const main = async (): Promise<void> => {
   const artifacts = await loadArtifacts(args.artifactsPath);
 
   const chainPlans = extractChainPlans(plan);
-  const chainClients = await resolveChainClients(deployer, chainPlans);
+  const chainClients = await resolveChainClients(deployer, chainPlans, args.locksPath, args.planPath);
   const chainSteps = resolveChainSteps(plan, chainPlans);
   const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
 
