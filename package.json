@@ -1,0 +1,20 @@
+{
+  "name": "roar",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "s": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "viem": "^2.27.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.9",
+    "@types/js-yaml": "^4.0.9"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+
+# Inputs
+artifacts
+plans
+
+# Output
+out
+dist
+*.tgz
+
+# Code coverage
+coverage
+*.lcov
+
+# Logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# Secrets
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+config.yaml
+
+# Caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
