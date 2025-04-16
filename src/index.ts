@@ -16,11 +16,12 @@ import {
   isHex,
   PrivateKeyAccount,
   PublicClient,
+  size,
   toFunctionSignature,
   Transport,
   WalletClient,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount, privateKeyToAddress } from 'viem/accounts';
 import { arbitrum, base, gnosis } from 'viem/chains';
 import { AbiConstructor, AbiFunction, AbiParameter } from 'abitype';
 
@@ -44,8 +45,9 @@ const REFERENCE_SEPARATOR = '.';
 const INPUT_PREFIXES = ['_'];
 const INPUT_SUFFIXES = ['_'];
 
-const RETRY_DELAY = 8_000; // 8s
-const NONCE_BEHIND_RETRIES = 15; // * 8s = 2m
+const DEFAULT_DRY_RUN = true;
+const DEFAULT_RETRY_DELAY = 8_000; // 8 secs
+const DEFAULT_NONCE_BEHIND_RETRIES = 15; // * 8 secs = 2 mins
 
 type Args = {
   planPath: string,
@@ -57,8 +59,15 @@ type ConfigDeployer = {
   key: Hex,
 };
 
+type ConfigExecution = {
+  dryRun: boolean;
+  retryDelay: number,
+  nonceBehindRetries: number,
+};
+
 type Config = {
   deployer: ConfigDeployer,
+  execution: ConfigExecution,
 };
 
 type PlanElement = string | number | boolean | null | PlanElement[] | { [key: string]: PlanElement };
@@ -157,9 +166,10 @@ const parseArgs = (): Args => {
     getArg(index);
   }
 
-  console.log(`Plan path: ${args.planPath}`);
-  console.log(`Config path: ${args.configPath}`);
-  console.log(`Artifacts path: ${args.artifactsPath}`);
+  console.log('Arguments:');
+  console.log(`- plan path: ${args.planPath}`);
+  console.log(`- config path: ${args.configPath}`);
+  console.log(`- artifacts path: ${args.artifactsPath}`);
   return args;
 };
 
@@ -168,7 +178,7 @@ const loadText = async (path: string): Promise<string> => {
   return text;
 };
 
-const loadYaml = async (path: string): Promise<unknown> => {
+const loadYaml = async (path: string): Promise<any> => {
   const text = await loadText(path);
   const object = yaml.load(text);
   return object;
@@ -182,32 +192,76 @@ const loadJson = async (path: string): Promise<any> => {
 
 const loadConfig = async (path: string): Promise<Config> => {
   const config = await loadYaml(path);
+
+  if (config.deployer == null) {
+    config.deployer = {};
+  } else if (typeof config.deployer !== 'object' || Array.isArray(config.deployer)) {
+    throw new Error('Invalid config "deployer" field (object expected)');
+  }
+
+  if (!isHex(config.deployer.key)) {
+    throw new Error('Invalid config "key" field of "deployer" (hex string expected)');
+  }
+
+  const keySize = size(config.deployer.key);
+  const expectedKeySize = 32;
+  if (keySize !== expectedKeySize) {
+    throw new Error(`Invalid byte size of config "key" field of "deployer" (${expectedKeySize} expected, got ${keySize})`);
+  }
+
+  if (config.execution == null) {
+    config.execution = {};
+  } else if (typeof config.execution !== 'object' || Array.isArray(config.execution)) {
+    throw new Error('Invalid config "execution" field (object expected)');
+  }
+
+  if (config.execution.dryRun == null) {
+    config.execution.dryRun = DEFAULT_DRY_RUN;
+  } else if (typeof config.execution.dryRun !== 'boolean') {
+    throw new Error('Invalid config "dryRun" field of "execution" (boolean expected)');
+  }
+
+  if (config.execution.retryDelay == null) {
+    config.execution.retryDelay = DEFAULT_RETRY_DELAY;
+  } else if (typeof config.execution.retryDelay !== 'number') {
+    throw new Error('Invalid config "retryDelay" field of "execution" (number expected)');
+  }
+
+  if (config.execution.nonceBehindRetries == null) {
+    config.execution.nonceBehindRetries = DEFAULT_NONCE_BEHIND_RETRIES;
+  } else if (typeof config.execution.nonceBehindRetries !== 'number') {
+    throw new Error('Invalid config "nonceBehindRetries" field of "execution" (number expected)');
+  }
+
+  console.log();
+  console.log('Config:');
+  console.log(`- deployer: ${privateKeyToAddress(config.deployer.key)}`);
+  console.log(`- dry run: ${config.execution.dryRun ? 'enabled 🏜️' : 'disabled'}`);
+  console.log(`- retry delay: ${config.execution.retryDelay} ms`);
+  console.log(`- nonce behind retries: ${config.execution.nonceBehindRetries}`);
   return config as Config;
 };
 
-const loadPlan = async (path: string): Promise<Plan> => {
+const loadPlan = async (path: string, deployer: Address): Promise<Plan> => {
   const plan = await loadYaml(path);
-  return plan as Plan;
-};
 
-const verifyPlanDeployer = (deployer: PrivateKeyAccount, plan: Plan): void => {
+  let deployerMatch: boolean | undefined;
+  if (plan.deployer != null) {
+    if (!isHex(plan.deployer)) {
+      throw new Error('Plan "deployer" must be a hex string');
+    }
+    deployerMatch = isAddressEqual(plan.deployer, deployer);
+  }
+
   console.log();
-  console.log(`Config deployer: ${deployer.address}`);
+  console.log('Plan:');
+  console.log(`- deployer: ${deployerMatch == null ? 'no specific one expected 👻' : `${plan.deployer} ${deployerMatch ? '✅' : '❌'}`}`);
 
-  if (plan.deployer == null) {
-    console.log('No specific deployer expected by plan');
-    return;
-  }
-
-  if (typeof plan.deployer !== 'string' || !isHex(plan.deployer)) {
-    throw new Error('Plan deployer must be a hex string');
-  }
-
-  const match = isAddressEqual(plan.deployer, deployer.address);
-  console.log(`Plan deployer: ${plan.deployer} ${match ? '✅' : '❌'}`);
-  if (!match) {
+  if (deployerMatch === false) {
     throw new Error('Config deployer does not match deployer expected by plan');
   }
+
+  return plan as Plan;
 };
 
 const discoverArtifactPaths = async (path: string): Promise<Map<string, string>> => {
@@ -300,7 +354,7 @@ const loadArtifacts = async (path: string): Promise<Map<string, Artifact>> => {
 
 const extractChainPlans = (plan: Plan): Map<string, Plan> => {
   const chainNames = Object.keys(plan).filter((key) => CHAINS.has(key));
-  console.log(`Plan chains (${chainNames.length}): ${chainNames.join(', ')}`);
+  console.log(`- chains (${chainNames.length}): ${chainNames.join(', ')}`);
 
   const chainPlans = new Map<string, Plan>();
   for (const chainName of chainNames) {
@@ -325,7 +379,7 @@ const resolveChainClients = async (
     const publicClient = createPublicClient({
       chain,
       transport,
-    })
+    });
     const walletClient = createWalletClient({
       account: deployer,
       chain,
@@ -834,6 +888,7 @@ const executeSingleChainAction = async (
   clients: ChainClients,
   actionIndex: number,
   totalActions: number,
+  config: ConfigExecution,
 ): Promise<number> => {
   let retry = 0;
   while (true) {
@@ -847,11 +902,21 @@ const executeSingleChainAction = async (
       const nonce = await clients.public.getTransactionCount({ address: from });
 
       if (nonce === action.nonce) {
-        await clients.wallet.sendTransaction({
-          data: action.data,
-          nonce: action.nonce,
-          to: action.to,
-        });
+        if (config.dryRun) {
+          console.log(`Dry mode is enabled in execution config - no actual transaction will be sent 🏜️`);
+        }
+        console.log(`Executing action #${actionIndex}/${totalActions} on ${chainName}:`);
+        console.log(`- data: ${action.data}`);
+        console.log(`- nonce: ${action.nonce}`);
+        console.log(`- to: ${action.to ?? '<null>'}`);
+
+        if (!config.dryRun) {
+          await clients.wallet.sendTransaction({
+            data: action.data,
+            nonce: action.nonce,
+            to: action.to,
+          });
+        }
       } else if (nonce > action.nonce) {
         console.warn(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
         console.warn('Assuming this action has been executed and thus will advance to next action');
@@ -859,8 +924,8 @@ const executeSingleChainAction = async (
       } else { // nonce < action.nonce
         console.warn(`On-chain nonce [${nonce}] is behind of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
         console.warn('This might be due to slow on-chain state sync and will fix itself after some enforced retries');
-        console.warn(`After ${NONCE_BEHIND_RETRIES} retries the issue assumed to be due to on-chain revert - thus, will retreat to previous action`);
-        if (retry < NONCE_BEHIND_RETRIES) {
+        console.warn(`After ${config.nonceBehindRetries} retries the issue assumed to be due to on-chain revert - thus, will retreat to previous action`);
+        if (retry < config.nonceBehindRetries) {
           throw new Error('On-chain nonce is behind action nonce');
         }
 
@@ -873,8 +938,8 @@ const executeSingleChainAction = async (
     } catch (e) {
       console.warn(`Action #${actionIndex}/${totalActions} on ${chainName} failed [${action.nonce}] ❌`);
       console.warn('Action error:', e);
-      console.warn(`Action will be executed again as retry #${++retry} after ${RETRY_DELAY}ms delay`);
-      await new Promise((r) => setTimeout(r, RETRY_DELAY));
+      console.warn(`Action will be executed again as retry #${++retry} after ${config.retryDelay} ms delay`);
+      await new Promise((r) => setTimeout(r, config.retryDelay));
     }
   }
 }
@@ -883,10 +948,11 @@ const executeSingleChainActions = async (
   chainName: string,
   actions: readonly Action[],
   clients: ChainClients,
+  config: ConfigExecution,
 ): Promise<void> => {
   console.log(`Execution of ${actions.length} actions on ${chainName} started [${clients.nonce}] ⏳`);
   for (let index = 0; index < actions.length;) {
-    const delta = await executeSingleChainAction(chainName, actions[index], clients, index, actions.length);
+    const delta = await executeSingleChainAction(chainName, actions[index], clients, index, actions.length, config);
     index += delta;
     if (index < 0) {
       index = 0;
@@ -898,6 +964,7 @@ const executeSingleChainActions = async (
 const executeChainActions = async (
   chainActions: ReadonlyMap<string, readonly Action[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
+  config: ConfigExecution,
 ): Promise<void> => {
   console.log();
   console.log(`Executing actions for ${chainActions.size} chains:`);
@@ -910,29 +977,24 @@ const executeChainActions = async (
   const chainExecutions = chainActions.keys().map(async (chainName) => {
     const actions = chainActions.get(chainName)!;
     const clients = chainClients.get(chainName)!;
-    await executeSingleChainActions(chainName, actions, clients);
+    await executeSingleChainActions(chainName, actions, clients, config);
   });
   await Promise.all(chainExecutions);
 };
 
 const main = async (): Promise<void> => {
   const args = parseArgs();
-
-  const [plan, config] = await Promise.all([
-    loadPlan(args.planPath),
-    loadConfig(args.configPath),
-  ]);
-
+  const config = await loadConfig(args.configPath);
   const deployer = privateKeyToAccount(config.deployer.key);
-  verifyPlanDeployer(deployer, plan);
-
+  const plan = await loadPlan(args.planPath, deployer.address);
   const artifacts = await loadArtifacts(args.artifactsPath);
+
   const chainPlans = extractChainPlans(plan);
   const chainClients = await resolveChainClients(deployer, chainPlans);
   const chainSteps = resolveChainSteps(plan, chainPlans);
   const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
 
-  await executeChainActions(chainActions, chainClients);
+  await executeChainActions(chainActions, chainClients, config.execution);
 };
 
 await main();
