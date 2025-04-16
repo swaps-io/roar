@@ -496,10 +496,10 @@ const resolveChainPlanSteps = (
       return new DeployStepArg(path);
     }
 
-    return evaluateValue(node);
+    return evaluateValue(node, path);
   };
 
-  const evaluateValue = (value: PlanElement): StepArg => {
+  const evaluateValue = (value: PlanElement, path: readonly string[]): StepArg => {
     if (typeof value === 'string') {
       if (isReference(value)) {
         return evaluateReference(value);
@@ -516,20 +516,20 @@ const resolveChainPlanSteps = (
     }
 
     if (Array.isArray(value)) {
-      return value.map(evaluateValue);
+      return value.map((value, index) => evaluateValue(value, [...path, `${index}`]));
     }
 
     if (value != null) {
-      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, evaluateValue(v)]));
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, evaluateValue(v, [...path, k])]));
     }
 
-    throw new Error('Null values are not supported');
+    throw new Error(`Unexpected null value for "${serializeReference(path)}"`);
   };
 
-  const evaluateNested = (node: Plan): Map<string, StepArg> => {
+  const evaluateNested = (node: Plan, path: readonly string[]): Map<string, StepArg> => {
     const nested = new Map<string, StepArg>();
     for (const [name, value] of Object.entries(node)) {
-      nested.set(name, evaluateValue(value));
+      nested.set(name, evaluateValue(value, [...path, name]));
     }
     return nested;
   };
@@ -549,7 +549,7 @@ const resolveChainPlanSteps = (
           throw new Error(`Invalid contract "${name}" value`);
         }
 
-        const args = evaluateNested(value);
+        const args = evaluateNested(value, [...path, name]);
         const step: DeployStep = {
           type: 'deploy',
           name,
@@ -567,7 +567,8 @@ const resolveChainPlanSteps = (
 
         const { [CALL_TARGET]: targetValue, [CALL_SIGNATURE]: signatureValue, ...argsValue } = value;
 
-        const target = evaluateValue(targetValue);
+        const callName = resolveCall(name);
+        const target = evaluateValue(targetValue, [...path, callName, CALL_TARGET]);
         if (target == null) {
           throw new Error(`Call "${name}" target is missing`);
         }
@@ -604,10 +605,10 @@ const resolveChainPlanSteps = (
           }
         }
 
-        const args = evaluateNested(argsValue);
+        const args = evaluateNested(argsValue, [...path, callName]);
         const step: CallStep = {
           type: 'call',
-          name: resolveCall(name),
+          name: callName,
           targetName,
           target,
           args,
