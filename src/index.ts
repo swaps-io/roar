@@ -34,6 +34,7 @@ const CHAINS = new Map<string, Chain>([
 const DEFAULT_PLAN_PATH = 'plan.yaml';
 const DEFAULT_CONFIG_PATH = 'config.yaml';
 const DEFAULT_ARTIFACTS_PATH = 'artifacts';
+const DEFAULT_STORAGES_PATH = 'storages';
 
 const CALL_PREFIX = '$';
 const CALL_TARGET = '$';
@@ -53,10 +54,11 @@ type Args = {
   planPath: string,
   configPath: string,
   artifactsPath: string,
+  storagesPath: string,
 };
 
 type ConfigDeployer = {
-  key: Hex,
+  privateKey: Hex,
 };
 
 type ConfigExecution = {
@@ -126,13 +128,20 @@ const parseArgs = (): Args => {
   console.log();
 
   const usage = (): never => {
-    throw new Error(`Usage: roar [--plan <plan-path>] [--config <config-path>] [--artifacts <artifacts-path>]`);
+    throw new Error(
+      'Usage: roar ' +
+      '[--plan <plan-path>] ' +
+      '[--config <config-path>] ' +
+      '[--artifacts <artifacts-path>] ' +
+      '[--storages <storages-path>]',
+    );
   };
 
   const args: Args = {
     configPath: DEFAULT_CONFIG_PATH,
     planPath: DEFAULT_PLAN_PATH,
     artifactsPath: DEFAULT_ARTIFACTS_PATH,
+    storagesPath: DEFAULT_STORAGES_PATH,
   };
 
   const getArgValue = (index: number): string => {
@@ -157,6 +166,11 @@ const parseArgs = (): Args => {
         args.artifactsPath = getArgValue(index + 1);
         return;
 
+      case '--storages':
+      case '-s':
+        args.storagesPath = getArgValue(index + 1);
+        return;
+
       default:
         usage();
     }
@@ -170,6 +184,7 @@ const parseArgs = (): Args => {
   console.log(`- plan path: ${args.planPath}`);
   console.log(`- config path: ${args.configPath}`);
   console.log(`- artifacts path: ${args.artifactsPath}`);
+  console.log(`- storages path: ${args.storagesPath}`);
   return args;
 };
 
@@ -199,14 +214,14 @@ const loadConfig = async (path: string): Promise<Config> => {
     throw new Error('Invalid config "deployer" field (object expected)');
   }
 
-  if (!isHex(config.deployer.key)) {
-    throw new Error('Invalid config "key" field of "deployer" (hex string expected)');
+  if (!isHex(config.deployer.privateKey)) {
+    throw new Error('Invalid config "privateKey" field of "deployer" (hex string expected)');
   }
 
-  const keySize = size(config.deployer.key);
+  const keySize = size(config.deployer.privateKey);
   const expectedKeySize = 32;
   if (keySize !== expectedKeySize) {
-    throw new Error(`Invalid byte size of config "key" field of "deployer" (${expectedKeySize} expected, got ${keySize})`);
+    throw new Error(`Invalid byte size of config "privateKey" field of "deployer" (${expectedKeySize} expected, got ${keySize})`);
   }
 
   if (config.execution == null) {
@@ -223,20 +238,20 @@ const loadConfig = async (path: string): Promise<Config> => {
 
   if (config.execution.retryDelay == null) {
     config.execution.retryDelay = DEFAULT_RETRY_DELAY;
-  } else if (typeof config.execution.retryDelay !== 'number') {
-    throw new Error('Invalid config "retryDelay" field of "execution" (number expected)');
+  } else if (typeof config.execution.retryDelay !== 'number' || config.execution.retryDelay < 0) {
+    throw new Error('Invalid config "retryDelay" field of "execution" (non-negative number expected)');
   }
 
   if (config.execution.nonceBehindRetries == null) {
     config.execution.nonceBehindRetries = DEFAULT_NONCE_BEHIND_RETRIES;
-  } else if (typeof config.execution.nonceBehindRetries !== 'number') {
-    throw new Error('Invalid config "nonceBehindRetries" field of "execution" (number expected)');
+  } else if (typeof config.execution.nonceBehindRetries !== 'number' || config.execution.nonceBehindRetries < 0) {
+    throw new Error('Invalid config "nonceBehindRetries" field of "execution" (non-negative number expected)');
   }
 
   console.log();
   console.log('Config:');
-  console.log(`- deployer: ${privateKeyToAddress(config.deployer.key)}`);
-  console.log(`- dry run: ${config.execution.dryRun ? 'enabled 🏜️' : 'disabled'}`);
+  console.log(`- deployer: ${privateKeyToAddress(config.deployer.privateKey)}`);
+  console.log(`- dry run: ${config.execution.dryRun ? 'enabled 🏜️' : 'disabled 🚨'}`);
   console.log(`- retry delay: ${config.execution.retryDelay} ms`);
   console.log(`- nonce behind retries: ${config.execution.nonceBehindRetries}`);
   return config as Config;
@@ -986,7 +1001,7 @@ const executeChainActions = async (
 const main = async (): Promise<void> => {
   const args = parseArgs();
   const config = await loadConfig(args.configPath);
-  const deployer = privateKeyToAccount(config.deployer.key);
+  const deployer = privateKeyToAccount(config.deployer.privateKey);
   const plan = await loadPlan(args.planPath, deployer.address);
   const artifacts = await loadArtifacts(args.artifactsPath);
 
