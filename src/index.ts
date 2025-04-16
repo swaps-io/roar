@@ -847,12 +847,11 @@ const executeSingleChainAction = async (
       const nonce = await clients.public.getTransactionCount({ address: from });
 
       if (nonce === action.nonce) {
-        // TODO
-        // await clients.wallet.sendTransaction({
-        //   data: action.data,
-        //   nonce: action.nonce,
-        //   to: action.to,
-        // });
+        await clients.wallet.sendTransaction({
+          data: action.data,
+          nonce: action.nonce,
+          to: action.to,
+        });
       } else if (nonce > action.nonce) {
         console.warn(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
         console.warn('Assuming this action has been executed and thus will advance to next action');
