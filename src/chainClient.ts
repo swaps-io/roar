@@ -1,0 +1,74 @@
+import { createPublicClient, createWalletClient, http } from 'viem';
+
+import { CHAINS } from './chains';
+import { Plan, ChainClients, Lock, Deployer } from './type';
+import { joinPath } from './file';
+import { loadLock, saveLock } from './lock';
+
+export const resolveChainClients = async (
+  deployer: Deployer,
+  chainPlans: ReadonlyMap<string, Plan>,
+  locksPath: string,
+  planPath: string,
+): Promise<Map<string, ChainClients>> => {
+  const lockPath = joinPath(locksPath, planPath);
+  const lock = await loadLock(lockPath);
+
+  if (lock != null) {
+    const lockChains = Object.keys(lock.nonces).sort().join(', ');
+    const planChains = [...chainPlans.keys()].sort().join(', ');
+    if (lockChains !== planChains) {
+      throw new Error(`Lock "${lockPath}" chains "${lockChains}" are not the same as the plan chains "${planChains}"`);
+    }
+  }
+
+  const chainClients = new Map<string, ChainClients>();
+  for (const chainName of chainPlans.keys()) {
+    const chain = CHAINS.get(chainName)!;
+    const transport = http();
+    const publicClient = createPublicClient({
+      chain,
+      transport,
+    });
+    const walletClient = createWalletClient({
+      account: deployer,
+      chain,
+      transport,
+    });
+
+    const clients: ChainClients = {
+      wallet: walletClient,
+      public: publicClient,
+      nonce: -1,
+    };
+    chainClients.set(chainName, clients);
+  }
+
+  if (lock == null) {
+    const newLock: Lock = {
+      nonces: {},
+    };
+
+    await Promise.all(chainClients.entries().map(async ([chainName, clients]) => {
+      clients.nonce = await clients.public.getTransactionCount({ address: deployer.address });
+      newLock.nonces[chainName] = clients.nonce;
+    }));
+
+    await saveLock(lockPath, newLock);
+  } else {
+    for (const [chainName, clients] of chainClients) {
+      clients.nonce = lock.nonces[chainName];
+    }
+  }
+
+  console.log();
+  console.log(`Chain clients (${chainClients.size}):`);
+  for (const [chainName, clients] of chainClients) {
+    const chain = CHAINS.get(chainName)!;
+    console.log(`- ${chainName}:`);
+    console.log(`  - id: ${chain.id}`);
+    console.log(`  - nonce: ${clients.nonce}`);
+    console.log(`  - rpc: ${chain.rpcUrls.default.http.join(', ')}`);
+  }
+  return chainClients;
+};
