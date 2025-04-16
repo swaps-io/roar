@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "s": "DO_NOT_TRACK=1 bun run src/index.ts"
+    "rr": "DO_NOT_TRACK=1 bun run src/index.ts"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
