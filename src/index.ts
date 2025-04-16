@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import ps from 'path';
 import yaml from 'js-yaml';
 
 import {
@@ -6,6 +7,8 @@ import {
   Chain,
   createPublicClient,
   createWalletClient,
+  encodeDeployData,
+  encodeFunctionData,
   getCreateAddress,
   Hex,
   http,
@@ -13,11 +16,13 @@ import {
   isHex,
   PrivateKeyAccount,
   PublicClient,
+  toFunctionSignature,
   Transport,
   WalletClient,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrum, base, gnosis } from 'viem/chains';
+import { AbiConstructor, AbiFunction, AbiParameter } from 'abitype';
 
 const CHAINS = new Map<string, Chain>([
   ['gnosis', gnosis],
@@ -27,11 +32,17 @@ const CHAINS = new Map<string, Chain>([
 
 const DEFAULT_PLAN_PATH = 'plan.yaml';
 const DEFAULT_CONFIG_PATH = 'config.yaml';
+const DEFAULT_ARTIFACTS_PATH = 'artifacts';
 
 const CALL_PREFIX = '$';
 const CALL_TARGET = '$';
+const CALL_SIGNATURE = '$sig';
+
 const REFERENCE_PREFIX = '$';
 const REFERENCE_SEPARATOR = '.';
+
+const INPUT_PREFIXES = ['_'];
+const INPUT_SUFFIXES = ['_'];
 
 const RETRY_DELAY = 8_000; // 8s
 const NONCE_BEHIND_RETRIES = 15; // * 8s = 2m
@@ -39,6 +50,7 @@ const NONCE_BEHIND_RETRIES = 15; // * 8s = 2m
 type Args = {
   planPath: string,
   configPath: string,
+  artifactsPath: string,
 };
 
 type ConfigDeployer = {
@@ -52,26 +64,38 @@ type Config = {
 type PlanElement = string | number | boolean | null | PlanElement[] | { [key: string]: PlanElement };
 type Plan = { [key: string]: PlanElement };
 
+type Artifact = {
+  name: string,
+  source: string,
+  bytecode: Hex,
+  constructor: AbiConstructor | undefined,
+  functions: Map<string, AbiFunction>,
+  resolutions: Map<string, Set<string>>,
+}
+
 type ChainClients = {
   wallet: WalletClient<Transport, Chain, PrivateKeyAccount>,
   public: PublicClient,
   nonce: number,
 };
 
-type DeployPath = { path: string[] };
+class DeployStepArg { public constructor(public readonly path: readonly string[]) {} }
+type StepArg = string | StepArg[] | DeployStepArg | { [key: string]: StepArg };
 
 type DeployStep = {
   type: 'deploy',
   name: string,
   path: string[],
-  args: Record<string, string | DeployPath>,
+  args: Map<string, StepArg>,
 };
 
 type CallStep = {
   type: 'call',
   name: string,
-  target: string | DeployPath,
-  args: Record<string, string | DeployPath>,
+  targetName: string,
+  target: StepArg,
+  args: Map<string, StepArg>,
+  signature: string | undefined;
 }
 
 type Step = DeployStep | CallStep;
@@ -93,12 +117,13 @@ const parseArgs = (): Args => {
   console.log();
 
   const usage = (): never => {
-    throw new Error(`Usage: roar [--plan <plan-path>] [--config <config-path>]`);
+    throw new Error(`Usage: roar [--plan <plan-path>] [--config <config-path>] [--artifacts <artifacts-path>]`);
   };
 
   const args: Args = {
     configPath: DEFAULT_CONFIG_PATH,
     planPath: DEFAULT_PLAN_PATH,
+    artifactsPath: DEFAULT_ARTIFACTS_PATH,
   };
 
   const getArgValue = (index: number): string => {
@@ -112,10 +137,17 @@ const parseArgs = (): Args => {
       case '-p':
         args.planPath = getArgValue(index + 1);
         return;
+
       case '--config':
       case '-c':
         args.configPath = getArgValue(index + 1);
         return;
+
+      case '--artifacts':
+      case '-a':
+        args.artifactsPath = getArgValue(index + 1);
+        return;
+
       default:
         usage();
     }
@@ -127,6 +159,7 @@ const parseArgs = (): Args => {
 
   console.log(`Plan path: ${args.planPath}`);
   console.log(`Config path: ${args.configPath}`);
+  console.log(`Artifacts path: ${args.artifactsPath}`);
   return args;
 };
 
@@ -138,6 +171,12 @@ const loadText = async (path: string): Promise<string> => {
 const loadYaml = async (path: string): Promise<unknown> => {
   const text = await loadText(path);
   const object = yaml.load(text);
+  return object;
+};
+
+const loadJson = async (path: string): Promise<any> => {
+  const text = await loadText(path);
+  const object = JSON.parse(text);
   return object;
 };
 
@@ -169,6 +208,94 @@ const verifyPlanDeployer = (deployer: PrivateKeyAccount, plan: Plan): void => {
   if (!match) {
     throw new Error('Config deployer does not match deployer expected by plan');
   }
+};
+
+const discoverArtifactPaths = async (path: string): Promise<Map<string, string>> => {
+  const entries = await fs.readdir(path, { recursive: true, withFileTypes: true });
+  const artifactPaths = new Map<string, string>();
+  for (const entry of entries) {
+    if (
+      entry.isFile() &&
+      entry.parentPath.endsWith('.sol') &&
+      entry.name.endsWith('.json')
+    ) {
+      const artifactName = entry.name.slice(0, -'.json'.length);
+      const artifactPath = ps.join(entry.parentPath, entry.name);
+      const existingPath = artifactPaths.get(artifactName);
+      if (existingPath != null) {
+        throw new Error(`Artifact "${artifactName}" path duplicate ("${artifactPath}" vs "${existingPath}")`);
+      }
+      artifactPaths.set(artifactName, artifactPath);
+    }
+  }
+  return artifactPaths;
+};
+
+const loadArtifact = async (name: string, path: string): Promise<Artifact> => {
+  const content = await loadJson(path);
+  if (content.contractName !== name) {
+    throw new Error(`Artifact at "${path}" has mismatching "contractName" value ("${name}" expected)`);
+  }
+
+  if (typeof content.sourceName !== 'string') {
+    throw new Error(`Artifact at "${path}" has unexpected "sourceName" value type (string expected)`);
+  }
+
+  if (!isHex(content.bytecode)) {
+    throw new Error(`Artifact at "${path}" has unexpected "bytecode" value type (hex string expected)`);
+  }
+
+  if (!Array.isArray(content.abi)) {
+    throw new Error(`Artifact at "${path}" has unexpected "abi" value type (array expected)`);
+  }
+
+  let constructor: AbiConstructor | undefined;
+  const functions = new Map<string, AbiFunction>();
+  const resolutions = new Map<string, Set<string>>();
+  for (const abi of content.abi) {
+    switch (abi.type) {
+      case 'constructor':
+        constructor = abi;
+        break;
+
+      case 'function':
+        const signature = toFunctionSignature(abi);
+
+        const sizeBefore = functions.size;
+        functions.set(signature, abi);
+        if (functions.size === sizeBefore) {
+          throw new Error(`Artifact at "${path}" has function "${signature}" duplicate in "abi"`);
+        }
+
+        const signatures = resolutions.get(abi.name);
+        if (signatures == null) {
+          resolutions.set(abi.name, new Set([signature]));
+        } else {
+          signatures.add(signature);
+        }
+        break;
+    }
+  }
+
+  const artifact: Artifact = {
+    name,
+    source: content.sourceName,
+    bytecode: content.bytecode,
+    constructor,
+    functions,
+    resolutions,
+  };
+  return artifact;
+}
+
+const loadArtifacts = async (path: string): Promise<Map<string, Artifact>> => {
+  const artifactPaths = await discoverArtifactPaths(path);
+  const artifacts = new Map<string, Artifact>();
+  await Promise.all(artifactPaths.entries().map(async ([name, path]) => {
+    const artifact = await loadArtifact(name, path);
+    artifacts.set(name, artifact);
+  }));
+  return artifacts;
 };
 
 const extractChainPlans = (plan: Plan): Map<string, Plan> => {
@@ -267,6 +394,26 @@ const serializeReference = (path: readonly string[]): string => {
   return REFERENCE_PREFIX + path.join(REFERENCE_SEPARATOR);
 };
 
+const resolveInput = (name: string): string => {
+  let keepResolving = true;
+  while (keepResolving) {
+    keepResolving = false;
+    for (const prefix of INPUT_PREFIXES) {
+      if (name.startsWith(prefix)) {
+        name = name.slice(prefix.length);
+        keepResolving = true;
+      }
+    }
+    for (const suffix of INPUT_SUFFIXES) {
+      if (name.endsWith(suffix)) {
+        name = name.slice(0, -suffix.length);
+        keepResolving = true;
+      }
+    }
+  }
+  return name;
+};
+
 const resolveChainPlanSteps = (
   chainName: string,
   chainPlan: Plan,
@@ -274,7 +421,7 @@ const resolveChainPlanSteps = (
 ): Step[] => {
   const steps: Step[] = [];
 
-  const evaluateReference = (reference: string): string | DeployPath => {
+  const evaluateReference = (reference: string): StepArg => {
     let node: PlanElement = plan;
     const path = resolveReference(reference, chainName);
     for (const name of path) {
@@ -292,13 +439,13 @@ const resolveChainPlanSteps = (
       if (isContractAddress(node)) {
         return node;
       }
-      return { path };
+      return new DeployStepArg(path);
     }
 
     return evaluateValue(node);
   };
 
-  const evaluateValue = (value: PlanElement): string | DeployPath => {
+  const evaluateValue = (value: PlanElement): StepArg => {
     if (typeof value === 'string') {
       if (isReference(value)) {
         return evaluateReference(value);
@@ -315,20 +462,20 @@ const resolveChainPlanSteps = (
     }
 
     if (Array.isArray(value)) {
-      return `[${value.map(evaluateValue).join(',')}]`;
+      return value.map(evaluateValue);
     }
 
     if (value != null) {
-      return `{${Object.entries(value).map(([k, v]) => `${k}:${evaluateValue(v)}`).join(',')}}`;
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, evaluateValue(v)]));
     }
 
     throw new Error('Null values are not supported');
   };
 
-  const evaluateNested = (node: Plan): Record<string, string | DeployPath> => {
-    const nested: Record<string, string | DeployPath> = {};
+  const evaluateNested = (node: Plan): Map<string, StepArg> => {
+    const nested = new Map<string, StepArg>();
     for (const [name, value] of Object.entries(node)) {
-      nested[name] = evaluateValue(value);
+      nested.set(name, evaluateValue(value));
     }
     return nested;
   };
@@ -364,16 +511,53 @@ const resolveChainPlanSteps = (
           throw new Error(`Invalid call "${name}" value`);
         }
 
-        const { [CALL_TARGET]: target, ...args } = evaluateNested(value);
+        const { [CALL_TARGET]: targetValue, [CALL_SIGNATURE]: signatureValue, ...argsValue } = value;
+
+        const target = evaluateValue(targetValue);
         if (target == null) {
           throw new Error(`Call "${name}" target is missing`);
         }
 
+        let targetName: string;
+        if (target instanceof DeployStepArg) {
+          targetName = target.path[target.path.length - 1];
+        } else {
+          if (typeof targetValue !== 'string' || !isReference(targetValue)) {
+            throw new Error(`Call "${name}" target must be a contract reference`);
+          }
+
+          const path = resolveReference(targetValue, chainName);
+          targetName = path[path.length - 1];
+          if (!isContract(targetName)) {
+            throw new Error(`Call "${name}" target must be a contract reference`);
+          }
+        }
+
+        let signature: string | undefined;
+        if (signatureValue != null) {
+          if (typeof signatureValue !== 'string') {
+            throw new Error(`Call "${name}" signature must be a constant or reference string`);
+          }
+
+          if (isReference(signatureValue)) {
+            const evaluated = evaluateReference(signatureValue);
+            if (typeof evaluated !== 'string') {
+              throw new Error(`Call "${name}" signature reference must resolve to a string constant`);
+            }
+            signature = evaluated;
+          } else {
+            signature = signatureValue;
+          }
+        }
+
+        const args = evaluateNested(argsValue);
         const step: CallStep = {
           type: 'call',
           name: resolveCall(name),
+          targetName,
           target,
           args,
+          signature,
         };
         steps.push(step);
         continue;
@@ -419,7 +603,7 @@ const collectChainDeploys = (
     const reference = serializeReference(step.path);
     const existingDeploy = deploys.get(reference);
     if (existingDeploy != null) {
-      throw new Error(`Deploy reference "${reference}" duplicate (#${existingDeploy.index} vs #${index})`);
+      throw new Error(`Deploy reference "${reference}" duplicate (#${index} vs #${existingDeploy.index})`);
     }
 
     const address = getCreateAddress({
@@ -445,52 +629,159 @@ const resolveChainStepActions = (
   steps: readonly Step[],
   deploys: ReadonlyMap<string, Deploy>,
   nonce: number,
+  artifacts: ReadonlyMap<string, Artifact>,
 ): Action[] => {
-  const resolveField = (value: DeployPath | string): string => {
-    if (typeof value !== 'object') {
-      return value;
+  type Param = string | Param[] | { [key: string]: Param };
+
+  const resolveParam = (value: StepArg): Param => {
+    if (value instanceof DeployStepArg) {
+      const reference = serializeReference(value.path);
+      const deploy = deploys.get(reference);
+      if (deploy != null) {
+        return deploy.address;
+      }
+      throw new Error(`Failed to resolve deploy reference "${reference}"`);
     }
 
-    const reference = serializeReference(value.path);
-    const deploy = deploys.get(reference);
-    if (deploy != null) {
-      return deploy.address;
+    if (Array.isArray(value)) {
+      return value.map(resolveParam);
     }
 
-    throw new Error(`Failed to resolve deploy reference "${reference}"`);
+    if (typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolveParam(v)]));
+    }
+
+    return value;
   }
 
-  const resolveRecord = (value: Record<string, DeployPath | string>): Record<string, string> => {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolveField(v)]));
-  };
+  const resolveArgs = (
+    args: ReadonlyMap<string, StepArg>,
+    inputs: readonly AbiParameter[],
+    description: string,
+  ): Param[] => {
+    const params: Param[] = [];
+    for (const input of inputs) {
+      if (!input.name) {
+        throw new Error(`ABI input for ${description} has "name" missing`);
+      }
 
-  const encodeData = (args: Record<string, string>): Hex => {
-    return `0xDATA ${JSON.stringify(args)}`; // TODO
+      const name = resolveInput(input.name);
+      const arg = args.get(name);
+      if (arg == null) {
+        throw new Error(`Argument "${name}" was not provided for ${description}`);
+      }
+
+      const param = resolveParam(arg);
+      params.push(param);
+    }
+    return params;
   };
 
   const toDeployAction = (step: DeployStep, index: number): Action => {
+    const artifact = artifacts.get(step.name);
+    if (artifact == null) {
+      throw new Error(`Chain ${chainName} call action at #${index} missing artifact for "${step.name}" deploy`);
+    }
+
+    const abi = artifact.constructor == null ? [] : [artifact.constructor];
+    const inputs = abi.flatMap((a) => a.inputs);
+    const args = resolveArgs(step.args, inputs, `"${step.name}" deploy`);
+
+    const data = encodeDeployData({
+      bytecode: artifact.bytecode,
+      abi,
+      args,
+    });
+
     const action: Action = {
       nonce: nonce + index,
-      data: encodeData(resolveRecord(step.args)),
+      data,
     };
 
+    console.log(`  - name: ${step.name}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
     return action;
   };
 
+  const resolveCallFunction = (step: CallStep, artifact: Artifact): AbiFunction => {
+    const func = artifact.functions.get(step.name);
+    if (func != null) {
+      return func;
+    }
+
+    const signatures = artifact.resolutions.get(step.name);
+    if (signatures == null) {
+      throw new Error(`Chain ${chainName} call targets function "${step.name}" missing in artifact "${step.targetName}"`);
+    }
+
+    if (signatures.size === 1) {
+      const signature = [...signatures][0];
+      const func = artifact.functions.get(signature)!;
+      return func;
+    }
+
+    if (!step.signature) {
+      throw new Error(
+        `Chain ${chainName} call to function "${step.name}" of artifact "${step.targetName}" must specify ` +
+        `signature field to resolve ambiguity among ${signatures.size} overload candidates`
+      );
+    }
+
+    const trySignature = (signature: string): AbiFunction | undefined => {
+      if (!signatures.has(signature)) {
+        return undefined;
+      }
+
+      const func = artifact.functions.get(signature)!;
+      return func;
+    };
+
+    const badSignature = (): never => {
+      throw new Error(
+        `Chain ${chainName} call to function "${step.name}" of artifact "${step.targetName}" specifies signature ` +
+        `"${step.signature}" that could not be matched with any of ${signatures.size} overload candidates`
+      );
+    };
+
+    return (
+      trySignature(step.signature) ??
+      trySignature(step.name + step.signature) ??
+      trySignature(`${step.name}(${step.signature})`) ??
+      badSignature()
+    );
+  };
+
   const toCallAction = (step: CallStep, index: number): Action => {
-    const target = resolveField(step.target);
+    const target = resolveParam(step.target);
     if (!isContractAddress(target)) {
+      console.log(target);
       throw new Error(`Chain ${chainName} call action at #${index} has invalid target address "${target}"`);
     }
+
+    const artifact = artifacts.get(step.targetName);
+    if (artifact == null) {
+      throw new Error(`Chain ${chainName} call action at #${index} missing artifact for "${step.targetName}" call target`);
+    }
+
+    const func = resolveCallFunction(step, artifact);
+
+    const abi = [func] as const;
+    const inputs = abi.flatMap((a) => a.inputs);
+    const args = resolveArgs(step.args, inputs, `"${step.targetName}.${step.name}" call`);
+
+    const data = encodeFunctionData({
+      abi,
+      args,
+    });
 
     const action: Action = {
       nonce: nonce + index,
       to: target,
-      data: encodeData(resolveRecord(step.args)),
+      data,
     };
 
+    console.log(`  - name: ${step.targetName}.${step.name}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - to: ${action.to}`);
     console.log(`  - data: ${action.data}`);
@@ -517,6 +808,7 @@ const resolveChainStepActions = (
 const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
+  artifacts: ReadonlyMap<string, Artifact>,
 ): Map<string, Action[]> => {
   console.log();
   const deploys = new Map<string, Deploy>();
@@ -530,7 +822,7 @@ const resolveChainActions = (
   const chainActions = new Map<string, Action[]>();
   for (const [chainName, steps] of chainSteps) {
     const clients = chainClients.get(chainName)!;
-    const actions = resolveChainStepActions(chainName, steps, deploys, clients.nonce);
+    const actions = resolveChainStepActions(chainName, steps, deploys, clients.nonce, artifacts);
     chainActions.set(chainName, actions);
   }
   return chainActions;
@@ -635,10 +927,11 @@ const main = async (): Promise<void> => {
   const deployer = privateKeyToAccount(config.deployer.key);
   verifyPlanDeployer(deployer, plan);
 
+  const artifacts = await loadArtifacts(args.artifactsPath);
   const chainPlans = extractChainPlans(plan);
   const chainClients = await resolveChainClients(deployer, chainPlans);
   const chainSteps = resolveChainSteps(plan, chainPlans);
-  const chainActions = resolveChainActions(chainSteps, chainClients);
+  const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
 
   await executeChainActions(chainActions, chainClients);
 };
