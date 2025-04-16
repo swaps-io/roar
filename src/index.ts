@@ -34,7 +34,7 @@ const CHAINS = new Map<string, Chain>([
 const DEFAULT_PLAN_PATH = 'plan.yaml';
 const DEFAULT_CONFIG_PATH = 'config.yaml';
 const DEFAULT_ARTIFACTS_PATH = 'artifacts';
-const DEFAULT_STORAGES_PATH = 'storages';
+const DEFAULT_LOCKS_PATH = 'locks';
 
 const CALL_PREFIX = '$';
 const CALL_TARGET = '$';
@@ -54,7 +54,7 @@ type Args = {
   planPath: string,
   configPath: string,
   artifactsPath: string,
-  storagesPath: string,
+  locksPath: string,
 };
 
 type ConfigDeployer = {
@@ -133,7 +133,7 @@ const parseArgs = (): Args => {
       '[--plan <plan-path>] ' +
       '[--config <config-path>] ' +
       '[--artifacts <artifacts-path>] ' +
-      '[--storages <storages-path>]',
+      '[--locks <locks-path>]',
     );
   };
 
@@ -141,7 +141,7 @@ const parseArgs = (): Args => {
     configPath: DEFAULT_CONFIG_PATH,
     planPath: DEFAULT_PLAN_PATH,
     artifactsPath: DEFAULT_ARTIFACTS_PATH,
-    storagesPath: DEFAULT_STORAGES_PATH,
+    locksPath: DEFAULT_LOCKS_PATH,
   };
 
   const getArgValue = (index: number): string => {
@@ -166,9 +166,9 @@ const parseArgs = (): Args => {
         args.artifactsPath = getArgValue(index + 1);
         return;
 
-      case '--storages':
-      case '-s':
-        args.storagesPath = getArgValue(index + 1);
+      case '--locks':
+      case '-l':
+        args.locksPath = getArgValue(index + 1);
         return;
 
       default:
@@ -184,7 +184,7 @@ const parseArgs = (): Args => {
   console.log(`- plan path: ${args.planPath}`);
   console.log(`- config path: ${args.configPath}`);
   console.log(`- artifacts path: ${args.artifactsPath}`);
-  console.log(`- storages path: ${args.storagesPath}`);
+  console.log(`- locks path: ${args.locksPath}`);
   return args;
 };
 
