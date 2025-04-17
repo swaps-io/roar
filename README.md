@@ -56,14 +56,14 @@ Plan file is `plan.yaml` by [default](#arguments).
 
 ### Examples
 
-_Simple_
+#### _Simple_
 
 ```yaml
 ethereum:  # Chain names are recognized by `roar`
   SimpleContract: {}
 ```
 
-_Parameters_
+#### _Parameters_
 
 ```yaml
 ethereum:
@@ -76,7 +76,7 @@ ethereum:
       nestedBool: true
 ```
 
-_Deployer as parameter_
+#### _Deployer as parameter_
 
 ```yaml
 deployer: '0x1111111111111111111111111111111111111111'  # Special field - address is verified against config
@@ -86,7 +86,7 @@ arbitrum:
     owner: $deployer  # References start with `$` (starts at plan's "root")
 ```
 
-_Nested constant parameters_
+#### _Nested constant parameters_
 
 ```yaml
 constants:
@@ -111,7 +111,7 @@ binance:
     arrayElementNestedAccess: $constants.complexArray.2.thisOneIsNested.weNeedToGoDeeper
 ```
 
-_Contract as parameter_
+#### _Contract as parameter_
 
 ```yaml
 polygon:
@@ -121,7 +121,7 @@ polygon:
     addressOfFirst: $.ThisContractIsFirst  # Note fancy `$.xyz` syntax - uses current chain (i.e. `$polygon.xyz`)
 ```
 
-_Foreign contract as parameter_
+#### _Foreign contract as parameter_
 
 ```yaml
 gnosis:
@@ -140,7 +140,7 @@ avalanche:
     letsUseTheirConstant: $gnosis.chainNestedConstant.whyNot
 ```
 
-_Contract call_
+#### _Contract call_
 
 ```yaml
 optimism:
@@ -159,7 +159,7 @@ optimism:
     parameter: 1337
 ```
 
-_Contract call with clarified signature_
+#### _Contract call with clarified signature_
 
 ```yaml
 base:
@@ -194,7 +194,7 @@ base:
       secondUint256Param: 1234567890
 ```
 
-_Contract call with value_
+#### _Contract call with value_
 
 ```yaml
 bob:
@@ -215,7 +215,7 @@ bob:
     $sig: address,uint256,bytes
 ```
 
-_Don't Repeat Yourself with YAML anchors_
+#### _Don't Repeat Yourself with YAML anchors_
 
 Anchors are [YAML feature](#https://en.wikipedia.org/wiki/YAML) fully supported by `roar`.
 
