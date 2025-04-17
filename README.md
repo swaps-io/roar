@@ -95,11 +95,20 @@ constants:
   coolArrayValue:
     - '0x19e994017a2cb00cf705fa0e8800b06696c0b8e363e8104756223859ed3c2124'
     - '0xb801f91fdf90a8c465b7730095955fc336d7957eec6e42298de108307bd9070f'
+  complexArray:
+    - '0x1234567890'
+    - '0xabcdef'
+    - thisOneIsNested:
+        weNeedToGoDeeper: 'hello-there'
+      anotherValue: 7777777
+    - 12345
 
 binance:
   FancyConstantContract:
     numberParameter: $constants.anyNameReally.someValue  # Reference nested keys are separated with `.`
     arrayParameter: $constants.coolArrayValue
+    arrayElementAccess: $constants.coolArrayValue.1  # 0-indexed, i.e. `0xb801f91f..` value here
+    arrayElementNestedAccess: $constants.complexArray.2.thisOneIsNested.weNeedToGoDeeper
 ```
 
 _Contract as parameter_
@@ -183,6 +192,27 @@ base:
       $sig: bytes32,uint256  # And another one - without braces around parameters
       firstBytes32Param: '0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff'
       secondUint256Param: 1234567890
+```
+
+_Contract call with value_
+
+```yaml
+bob:
+  CallableContract: '0x4242424242424242424242424242424242424242'
+
+  $someFunction:
+    $: $.CallableContract
+    $val: 1000000000  # Special `$val` field can be used to specify `msg.value` for call (in wei)
+    someCallParameter: '0x880077006600'
+
+  ContractWithPayableConstructor:
+    $val: 123456  # Can also specify `$val` for payable constructors
+    someConstructorParameter: '0x4242424242424242424242424242424242424242'
+
+  $anotherFunction:
+    $: $.CallableContract
+    $val: '0xabcdef'  # Hex and decimal strings are accepted
+    $sig: address,uint256,bytes
 ```
 
 ## Artifacts
