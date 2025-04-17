@@ -1,4 +1,4 @@
-import { CALL_TARGET, CALL_SIGNATURE } from './constant';
+import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, REFERENCE_PREFIX } from './constant';
 import { PlanElement, Plan, DeployStepArg, StepArg, DeployStep, CallStep, Step } from './type';
 import { isCall, isContract, isContractAddress, isReference, resolveCall, resolveReference, serializeReference } from './parse';
 
@@ -11,15 +11,17 @@ const resolveChainPlanSteps = (
 
   const evaluateReference = (reference: string): StepArg => {
     let node: PlanElement = plan;
+    let nodeName = REFERENCE_PREFIX;
     const path = resolveReference(reference, chainName);
     for (const name of path) {
       if (node == null || typeof node !== 'object') {
-        throw new Error(`Failed to resolve reference "${reference}" at "${name}"`);
+        throw new Error(`Failed to resolve reference "${reference}" at "${nodeName}"`);
       }
 
       node = Array.isArray(node)
         ? node[Number(name)]
         : node[name];
+      nodeName = name;
     }
   
     const name = path[path.length - 1];
@@ -60,12 +62,35 @@ const resolveChainPlanSteps = (
     throw new Error(`Unexpected null value for "${serializeReference(path)}"`);
   };
 
-  const evaluateNested = (node: Plan, path: readonly string[]): Map<string, StepArg> => {
+  const evaluateNestedArgs = (node: Plan, path: readonly string[]): Map<string, StepArg> => {
     const nested = new Map<string, StepArg>();
     for (const [name, value] of Object.entries(node)) {
       nested.set(name, evaluateValue(value, [...path, name]));
     }
     return nested;
+  };
+
+  const evaluateCallValue = (value: PlanElement, path: readonly string[], description: string): bigint | undefined => {
+    if (value == null) {
+      return undefined;
+    }
+
+    const evaluated = evaluateValue(value, path);
+    if (typeof evaluated !== 'string') {
+      throw new Error(`${description} value must resolve to a primitive constant`);
+    }
+
+    let callValue: bigint;
+    try {
+      callValue = BigInt(evaluated);
+      if (callValue < 0n) {
+        throw new Error();
+      }
+    } catch {
+      throw new Error(`${description} value must be a non-negative integer number (got "${evaluated}")`);
+    }
+
+    return callValue > 0n ? callValue : undefined;
   };
 
   const visit = (node: PlanElement, path: readonly string[]): void => {
@@ -83,12 +108,17 @@ const resolveChainPlanSteps = (
           throw new Error(`Invalid contract "${name}" value`);
         }
 
-        const args = evaluateNested(value, [...path, name]);
+        const { [CALL_VALUE]: callValueValue, ...argsValue } = value;
+
+        const deployPath = [...path, name];
+        const args = evaluateNestedArgs(argsValue, deployPath);
+        const deployValue = evaluateCallValue(callValueValue, [...deployPath, CALL_VALUE], `Deploy "${name}"`);
         const step: DeployStep = {
           type: 'deploy',
           name,
-          path: [...path, name],
+          path: deployPath,
           args,
+          value: deployValue,
         };
         steps.push(step);
         continue;
@@ -99,7 +129,12 @@ const resolveChainPlanSteps = (
           throw new Error(`Invalid call "${name}" value`);
         }
 
-        const { [CALL_TARGET]: targetValue, [CALL_SIGNATURE]: signatureValue, ...argsValue } = value;
+        const {
+          [CALL_TARGET]: targetValue,
+          [CALL_SIGNATURE]: signatureValue,
+          [CALL_VALUE]: callValueValue,
+          ...argsValue
+        } = value;
 
         const callName = resolveCall(name);
         const target = evaluateValue(targetValue, [...path, callName, CALL_TARGET]);
@@ -139,7 +174,9 @@ const resolveChainPlanSteps = (
           }
         }
 
-        const args = evaluateNested(argsValue, [...path, callName]);
+        const callPath = [...path, callName];
+        const args = evaluateNestedArgs(argsValue, callPath);
+        const callValue = evaluateCallValue(callValueValue, [...callPath, CALL_VALUE], `Call "${name}"`);
         const step: CallStep = {
           type: 'call',
           name: callName,
@@ -147,6 +184,7 @@ const resolveChainPlanSteps = (
           target,
           args,
           signature,
+          value: callValue,
         };
         steps.push(step);
         continue;

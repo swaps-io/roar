@@ -115,12 +115,17 @@ const resolveChainStepActions = (
 
     const action: Action = {
       nonce: nonce + index,
+      to: undefined, // New contract
       data,
+      value: step.value,
     };
 
     console.log(`  - name: ${step.name}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
+    if (action.value != null) {
+      console.log(`  - value: ${action.value}`);
+    }
     return action;
   };
 
@@ -199,12 +204,16 @@ const resolveChainStepActions = (
       nonce: nonce + index,
       to: target,
       data,
+      value: step.value,
     };
 
     console.log(`  - name: ${step.targetName}.${step.name}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - to: ${action.to}`);
     console.log(`  - data: ${action.data}`);
+    if (action.value != null) {
+      console.log(`  - value: ${action.value}`);
+    }
     return action;
   };
 

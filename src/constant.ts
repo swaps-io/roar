@@ -6,6 +6,7 @@ export const DEFAULT_LOCKS_PATH = 'locks';
 export const CALL_PREFIX = '$';
 export const CALL_TARGET = '$';
 export const CALL_SIGNATURE = '$sig';
+export const CALL_VALUE = '$val';
 
 export const REFERENCE_PREFIX = '$';
 export const REFERENCE_SEPARATOR = '.';

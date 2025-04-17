@@ -51,6 +51,7 @@ export type DeployStep = {
   name: string,
   path: string[],
   args: Map<string, StepArg>,
+  value: bigint | undefined,
 };
 
 export type CallStep = {
@@ -59,7 +60,8 @@ export type CallStep = {
   targetName: string,
   target: StepArg,
   args: Map<string, StepArg>,
-  signature: string | undefined;
+  signature: string | undefined,
+  value: bigint | undefined,
 }
 
 export type Step = DeployStep | CallStep;
@@ -71,8 +73,9 @@ export type Deploy = {
 
 export type Action = {
   nonce: number;
-  to?: Hex;
+  to: Hex | undefined;
   data: Hex;
+  value: bigint | undefined;
 };
 
 export type Lock = {

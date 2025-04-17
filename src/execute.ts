@@ -24,17 +24,21 @@ const executeSingleChainAction = async (
           console.log(`Dry mode is enabled in execution config - no actual transaction will be sent 🏜️`);
         }
         console.log(`Executing action #${actionIndex}/${totalActions} on ${chainName}:`);
-        console.log(`- data: ${action.data}`);
         console.log(`- nonce: ${action.nonce}`);
         if (action.to != null) {
           console.log(`- to: ${action.to}`);
         }
+        console.log(`- data: ${action.data}`);
+        if (action.value != null) {
+          console.log(`- value: ${action.value}`);
+        }
 
         if (!config.dryRun) {
           const hash = await clients.wallet.sendTransaction({
-            data: action.data,
             nonce: action.nonce,
             to: action.to,
+            data: action.data,
+            value: action.value,
           });
           console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction sent:`);
           console.log(`- hash: ${hash}`);
