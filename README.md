@@ -215,6 +215,42 @@ bob:
     $sig: address,uint256,bytes
 ```
 
+_Don't Repeat Yourself with YAML anchors_
+
+Anchors are [YAML feature](#https://en.wikipedia.org/wiki/YAML) fully supported by `roar`.
+
+```yaml
+template:
+  repeating:
+    SomeRepeatingContract: &repeating-contract
+      someAddressParameter: $.coolAddress  # Will use current chain wherever anchor is applied
+      anotherParameter: '322322322'
+
+fantom:
+  coolAddress: '0x1337133713371337133713371337133713371337'
+  SomeRepeatingContract: *repeating-contract
+
+mode:
+  coolAddress: '0x9773977397739773977397739773977397739773'
+  SomeRepeatingContract: *repeating-contract
+```
+
+The plan above is equivalent to:
+
+```yaml
+fantom:
+  coolAddress: '0x1337133713371337133713371337133713371337'
+  SomeRepeatingContract:
+    someAddressParameter: $.coolAddress
+    anotherParameter: '322322322'
+
+mode:
+  coolAddress: '0x9773977397739773977397739773977397739773'
+  SomeRepeatingContract:
+    someAddressParameter: $.coolAddress
+    anotherParameter: '322322322'
+```
+
 ## Artifacts
 
 Artifacts are provided by contract build tool such as [`hardhat`](https://hardhat.org).
