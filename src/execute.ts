@@ -31,11 +31,23 @@ const executeSingleChainAction = async (
         }
 
         if (!config.dryRun) {
-          await clients.wallet.sendTransaction({
+          const hash = await clients.wallet.sendTransaction({
             data: action.data,
             nonce: action.nonce,
             to: action.to,
           });
+          console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction sent:`);
+          console.log(`- hash: ${hash}`);
+
+          const receipt = await clients.public.waitForTransactionReceipt({ hash });
+          console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction receipt:`);
+          console.log(`- hash: ${hash}`);
+          console.log(`- block: ${receipt.blockNumber}`);
+          console.log(`- gas used: ${receipt.gasUsed}`);
+          console.log(`- gas price: ${receipt.effectiveGasPrice}`);
+          if (receipt.contractAddress) {
+            console.log(`- contract: ${receipt.contractAddress}`);
+          }
         }
       } else if (nonce > action.nonce) {
         console.warn(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
