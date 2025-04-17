@@ -233,6 +233,12 @@ fantom:
 mode:
   coolAddress: '0x9773977397739773977397739773977397739773'
   SomeRepeatingContract: *repeating-contract
+
+zkevm:
+  coolAddress: '0x0505050505050505050505050505050505050505'
+  SomeRepeatingContract:
+    <<: *repeating-contract
+    anotherParameter: 4747474  # Can override anchor fields or add new ones
 ```
 
 The plan above is equivalent to:
@@ -249,6 +255,12 @@ mode:
   SomeRepeatingContract:
     someAddressParameter: $.coolAddress
     anotherParameter: '322322322'
+
+zkevm:
+  coolAddress: '0x0505050505050505050505050505050505050505'
+  SomeRepeatingContract:
+    someAddressParameter: $.coolAddress
+    anotherParameter: 4747474
 ```
 
 ## Artifacts
