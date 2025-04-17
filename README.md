@@ -70,6 +70,10 @@ ethereum:
   ParametrizedContract:  # Contracts are recognized by capital letter
     someParameter: 123
     anotherParameter: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+    structureParameter:
+      nestedBytes: '0xabcdef01234'
+      nestedString: 'hello-world'
+      nestedBool: true
 ```
 
 _Deployer as parameter_
@@ -194,5 +198,5 @@ Artifacts folder is `artifacts` by [default](#arguments).
 
 ## Chains
 
-Chain names to use in [plan](#plan) can be found in the [`src/chains`](src/chains.ts) registry. New elements can be
+Chain names to use in [plan](#plan) can be found in the [`src/chains.ts`](src/chains.ts) registry. New elements can be
 added according to needs.
