@@ -26,7 +26,7 @@ const discoverArtifactPaths = async (path: string): Promise<Map<string, string>>
   return artifactPaths;
 };
 
-const loadArtifact = async (name: string, path: string): Promise<Artifact> => {
+const loadArtifact = async (name: string, path: string): Promise<Artifact | null> => {
   const content = await loadJson(path);
   if (content.contractName !== name) {
     throw new Error(`Artifact at "${path}" has mismatching "contractName" value ("${name}" expected)`);
@@ -34,6 +34,14 @@ const loadArtifact = async (name: string, path: string): Promise<Artifact> => {
 
   if (typeof content.sourceName !== 'string') {
     throw new Error(`Artifact at "${path}" has unexpected "sourceName" value type (string expected)`);
+  }
+
+  if (content.linkReferences == null || typeof content.linkReferences !== 'object' || Array.isArray(content.linkReferences)) {
+    throw new Error(`Artifact at "${path}" has unexpected "linkReferences" value type (object expected)`);
+  }
+
+  if (Object.keys(content.linkReferences).length > 0) {
+    return null; // Skipping artifact - its bytecode requires linking against libraries, which is not supported
   }
 
   if (!isHex(content.bytecode)) {
@@ -88,7 +96,9 @@ export const loadArtifacts = async (path: string): Promise<Map<string, Artifact>
   const artifacts = new Map<string, Artifact>();
   await Promise.all(artifactPaths.entries().map(async ([name, path]) => {
     const artifact = await loadArtifact(name, path);
-    artifacts.set(name, artifact);
+    if (artifact != null) {
+      artifacts.set(name, artifact);
+    }
   }));
   return artifacts;
 };
