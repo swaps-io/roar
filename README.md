@@ -215,6 +215,23 @@ bob:
     $sig: address,uint256,bytes
 ```
 
+#### _Contract call of function matching reserved name_
+
+```yaml
+blast:
+  VeryInterestingContract: '0xcececececececececececececececececececece'
+
+  $val$:  # Special `$val` & `$sig` are not called by default. Add `$` suffix if matching function call really needed
+    $: $.VeryInterestingContract
+    parameter: '0xf8c2517f965c3b'
+
+  $sig(bytes32,bytes32):  # Or just specify a full signature of the `val` or `sig` function
+    $: $.VeryInterestingContract
+    $val: 1000000000
+    r: '0xf23085a5eb8435359235c81cc20c7398586a02a69db7d3b23ae3cf10bd429ec4'
+    vs: '0x0c93b9e8585b554f0b0f226f790222c2706377e5851bcc07607147edc3a6a9fe'
+```
+
 #### _Don't Repeat Yourself with YAML anchors_
 
 Anchors are [YAML feature](#https://en.wikipedia.org/wiki/YAML) fully supported by `roar`.

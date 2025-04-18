@@ -7,6 +7,8 @@ export const CALL_PREFIX = '$';
 export const CALL_TARGET = '$';
 export const CALL_SIGNATURE = '$sig';
 export const CALL_VALUE = '$val';
+export const CALL_IGNORES = new Set([CALL_TARGET, CALL_SIGNATURE, CALL_VALUE]);
+export const CALL_FORCE_SUFFIX = '$';
 
 export const REFERENCE_PREFIX = '$';
 export const REFERENCE_SEPARATOR = '.';

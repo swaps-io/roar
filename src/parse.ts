@@ -1,6 +1,14 @@
 import { Hex, isHex } from 'viem';
 
-import { CALL_PREFIX, REFERENCE_PREFIX, REFERENCE_SEPARATOR, INPUT_PREFIXES, INPUT_SUFFIXES } from './constant';
+import {
+  CALL_PREFIX,
+  CALL_IGNORES,
+  CALL_FORCE_SUFFIX,
+  REFERENCE_PREFIX,
+  REFERENCE_SEPARATOR,
+  INPUT_PREFIXES,
+  INPUT_SUFFIXES,
+} from './constant';
 
 const isUpperCase = (value: string): boolean => {
   return ( // 2 checks to handle digits etc
@@ -19,11 +27,27 @@ export const isContractAddress = (value: unknown): value is Hex => {
 };
 
 export const isCall = (name: string): boolean => {
-  return name.startsWith(CALL_PREFIX);
+  if (!name.startsWith(CALL_PREFIX)) {
+    return false;
+  }
+
+  if (!CALL_IGNORES.has(name)) {
+    return true;
+  }
+
+  if (name.endsWith(CALL_FORCE_SUFFIX) && name !== CALL_FORCE_SUFFIX) {
+    return true;
+  }
+
+  return false;
 };
 
 export const resolveCall = (name: string): string => {
-  return name.slice(CALL_PREFIX.length);
+  name = name.slice(CALL_PREFIX.length);
+  if (name.endsWith(CALL_FORCE_SUFFIX)) {
+    name = name.slice(0, -CALL_FORCE_SUFFIX.length);
+  }
+  return name;
 };
 
 export const isReference = (name: string): boolean => {
