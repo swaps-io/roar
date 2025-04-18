@@ -20,9 +20,6 @@ const executeSingleChainAction = async (
       const nonce = await clients.public.getTransactionCount({ address: from });
 
       if (nonce === action.nonce) {
-        if (config.dryRun) {
-          console.log(`Dry mode is enabled in execution config - no actual transaction will be sent 🏜️`);
-        }
         console.log(`Executing action #${actionIndex}/${totalActions} on ${chainName}:`);
         console.log(`- nonce: ${action.nonce}`);
         if (action.to != null) {
@@ -33,25 +30,23 @@ const executeSingleChainAction = async (
           console.log(`- value: ${action.value}`);
         }
 
-        if (!config.dryRun) {
-          const hash = await clients.wallet.sendTransaction({
-            nonce: action.nonce,
-            to: action.to,
-            data: action.data,
-            value: action.value,
-          });
-          console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction sent:`);
-          console.log(`- hash: ${hash}`);
+        const hash = await clients.wallet.sendTransaction({
+          nonce: action.nonce,
+          to: action.to,
+          data: action.data,
+          value: action.value,
+        });
+        console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction sent:`);
+        console.log(`- hash: ${hash}`);
 
-          const receipt = await clients.public.waitForTransactionReceipt({ hash });
-          console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction receipt:`);
-          console.log(`- hash: ${hash}`);
-          console.log(`- block: ${receipt.blockNumber}`);
-          console.log(`- gas used: ${receipt.gasUsed}`);
-          console.log(`- gas price: ${receipt.effectiveGasPrice}`);
-          if (receipt.contractAddress) {
-            console.log(`- contract: ${receipt.contractAddress}`);
-          }
+        const receipt = await clients.public.waitForTransactionReceipt({ hash });
+        console.log(`Action #${actionIndex}/${totalActions} on ${chainName} transaction receipt:`);
+        console.log(`- hash: ${hash}`);
+        console.log(`- block: ${receipt.blockNumber}`);
+        console.log(`- gas used: ${receipt.gasUsed}`);
+        console.log(`- gas price: ${receipt.effectiveGasPrice}`);
+        if (receipt.contractAddress) {
+          console.log(`- contract: ${receipt.contractAddress}`);
         }
       } else if (nonce > action.nonce) {
         console.log(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}] ⚠️`);
@@ -108,6 +103,12 @@ export const executeChainActions = async (
     const actions = chainActions.get(chainName)!;
     const clients = chainClients.get(chainName)!;
     console.log(`- ${chainName} has ${actions.length} actions to execute [${clients.nonce}]`);
+  }
+
+  if (config.dryRun) {
+    console.log();
+    console.log(`Dry mode is enabled in execution config - no actual transactions sent 🏜️`);
+    return;
   }
 
   const chainExecutions = chainActions.keys().map(async (chainName) => {
