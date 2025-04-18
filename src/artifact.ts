@@ -11,7 +11,8 @@ const discoverArtifactPaths = async (path: string): Promise<Map<string, string>>
     if (
       entry.isFile() &&
       entry.parentPath.endsWith('.sol') &&
-      entry.name.endsWith('.json')
+      entry.name.endsWith('.json') &&
+      !entry.name.endsWith('.dbg.json')
     ) {
       const artifactName = entry.name.slice(0, -'.json'.length);
       const artifactPath = joinPath(entry.parentPath, entry.name);
