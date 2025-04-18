@@ -1,6 +1,6 @@
 import { AbiFunction, AbiParameter } from 'abitype';
 
-import { Artifact, ArtifactRegistry, Deploy, DeployValue, ResolvedValue, Value } from './type';
+import { Artifact, ArtifactRegistry, Deploy, DeployValue, ViemValue, Value } from './type';
 import {
   CALL_ARTIFACT,
   CALL_FORCE_SUFFIX,
@@ -166,7 +166,7 @@ export const resolveFunction = (
 export const resolveValue = (
   value: Value,
   deploys: ReadonlyMap<string, Deploy>,
-): ResolvedValue => {
+): ViemValue => {
   if (value instanceof DeployValue) {
     const reference = createReference(value.path);
     const deploy = deploys.get(reference);
@@ -196,8 +196,8 @@ export const resolveArguments = (
   inputs: readonly AbiParameter[],
   deploys: ReadonlyMap<string, Deploy>,
   description: string,
-): ResolvedValue[] => {
-  const values: ResolvedValue[] = [];
+): ViemValue[] => {
+  const values: ViemValue[] = [];
   for (const input of inputs) {
     if (!input.name) {
       throw new Error(`ABI input for ${description} has "name" missing`);

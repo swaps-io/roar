@@ -53,8 +53,8 @@ export type ChainClients = {
 };
 
 export class DeployValue { public constructor(public readonly path: readonly string[]) {} }
-export type ResolvedValue = boolean | number | bigint | string | ResolvedValue[] | { [key: string]: ResolvedValue };
-export type Value = ResolvedValue | Value[] | DeployValue | { [key: string]: Value };
+export type ViemValue = boolean | number | bigint | string | ViemValue[] | { [key: string]: ViemValue };
+export type Value = ViemValue | DeployValue | Value[] | { [key: string]: Value };
 
 export type CallTarget = {
   name: string,
