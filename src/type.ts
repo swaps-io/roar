@@ -35,6 +35,11 @@ export type Artifact = {
   resolutions: Map<string, Set<string>>,
 }
 
+export type ArtifactRegistry = {
+  artifacts: Map<string, Artifact>,
+  resolutions: Map<string, Set<string>>,
+};
+
 export type Deployer = PrivateKeyAccount;
 
 export type ChainClients = {
@@ -52,6 +57,7 @@ export type DeployStep = {
   path: string[],
   args: Map<string, StepArg>,
   value: bigint | undefined,
+  artifact: string | undefined,
 };
 
 export type CallStep = {
@@ -62,6 +68,7 @@ export type CallStep = {
   args: Map<string, StepArg>,
   signature: string | undefined,
   value: bigint | undefined,
+  artifact: string | undefined,
 }
 
 export type Step = DeployStep | CallStep;

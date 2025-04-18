@@ -1,12 +1,12 @@
 import { isHex, toFunctionSignature } from 'viem';
 import { AbiConstructor, AbiFunction } from 'abitype';
 
-import { Artifact } from './type';
+import { Artifact, ArtifactRegistry } from './type';
 import { loadJson, joinPath, discoverDirectoryEntries } from './file';
 
-const discoverArtifactPaths = async (path: string): Promise<Map<string, string>> => {
+const discoverArtifactPaths = async (path: string): Promise<string[]> => {
   const entries = await discoverDirectoryEntries(path);
-  const artifactPaths = new Map<string, string>();
+  const artifactPaths: string[] = [];
   for (const entry of entries) {
     if (
       entry.isFile() &&
@@ -14,22 +14,18 @@ const discoverArtifactPaths = async (path: string): Promise<Map<string, string>>
       entry.name.endsWith('.json') &&
       !entry.name.endsWith('.dbg.json')
     ) {
-      const artifactName = entry.name.slice(0, -'.json'.length);
       const artifactPath = joinPath(entry.parentPath, entry.name);
-      const existingPath = artifactPaths.get(artifactName);
-      if (existingPath != null) {
-        throw new Error(`Artifact "${artifactName}" path duplicate ("${artifactPath}" vs "${existingPath}")`);
-      }
-      artifactPaths.set(artifactName, artifactPath);
+      artifactPaths.push(artifactPath);
     }
   }
   return artifactPaths;
 };
 
-const loadArtifact = async (name: string, path: string): Promise<Artifact | null> => {
+const loadArtifact = async (path: string): Promise<Artifact | null> => {
   const content = await loadJson(path);
-  if (content.contractName !== name) {
-    throw new Error(`Artifact at "${path}" has mismatching "contractName" value ("${name}" expected)`);
+
+  if (typeof content.contractName !== 'string') {
+    throw new Error(`Artifact at "${path}" has unexpected "contractName" value (string expected)`);
   }
 
   if (typeof content.sourceName !== 'string') {
@@ -81,7 +77,7 @@ const loadArtifact = async (name: string, path: string): Promise<Artifact | null
   }
 
   const artifact: Artifact = {
-    name,
+    name: content.contractName,
     source: content.sourceName,
     bytecode: content.bytecode,
     constructor,
@@ -91,14 +87,30 @@ const loadArtifact = async (name: string, path: string): Promise<Artifact | null
   return artifact;
 }
 
-export const loadArtifacts = async (path: string): Promise<Map<string, Artifact>> => {
+export const loadArtifacts = async (path: string): Promise<ArtifactRegistry> => {
   const artifactPaths = await discoverArtifactPaths(path);
+
   const artifacts = new Map<string, Artifact>();
-  await Promise.all(artifactPaths.entries().map(async ([name, path]) => {
-    const artifact = await loadArtifact(name, path);
-    if (artifact != null) {
-      artifacts.set(name, artifact);
+  const resolutions = new Map<string, Set<string>>();
+  await Promise.all(artifactPaths.map(async (path) => {
+    const artifact = await loadArtifact(path);
+    if (artifact == null) {
+      return;
+    }
+
+    artifacts.set(path, artifact);
+
+    const paths = resolutions.get(artifact.name);
+    if (paths == null) {
+      resolutions.set(artifact.name, new Set([path]));
+    } else {
+      paths.add(path);
     }
   }));
-  return artifacts;
+
+  const registry: ArtifactRegistry = {
+    artifacts,
+    resolutions,
+  };
+  return registry;
 };

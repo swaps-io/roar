@@ -221,15 +221,32 @@ bob:
 blast:
   VeryInterestingContract: '0xcececececececececececececececececececece'
 
-  $val$:  # Special `$val` & `$sig` are not called by default. Add `$` suffix if matching function call really needed
+  $val$:  # Special `$val`, `$sig`, and `$art` are not called by default. Add `$` suffix if matching function call needed
     $: $.VeryInterestingContract
     parameter: '0xf8c2517f965c3b'
 
-  $sig(bytes32,bytes32):  # Or just specify a full signature of the `val` or `sig` function
+  $sig(bytes32,bytes32):  # Or just specify a full signature of the `val`, `sig`, or `art` function
     $: $.VeryInterestingContract
     $val: 1000000000
     r: '0xf23085a5eb8435359235c81cc20c7398586a02a69db7d3b23ae3cf10bd429ec4'
     vs: '0x0c93b9e8585b554f0b0f226f790222c2706377e5851bcc07607147edc3a6a9fe'
+```
+
+#### _Contract call with clarified artifact path_
+
+```yaml
+linea:
+  a:
+    SomeAmbiguousContract:
+      $art: artifacts/somepath/SomeAmbiguousContract.sol/SomeAmbiguousContract.json  # Artifact full file path resolution
+
+  b:
+    SomeAmbiguousContract:
+      $art: artifacts/somepath  # Simpler resolution variant analogous to resolution above
+
+  c:
+    SomeAmbiguousContract:
+      $art: artifacts/somepath/SomeAmbiguousContract.sol  # Another variant
 ```
 
 #### _Don't Repeat Yourself with YAML anchors_
@@ -285,11 +302,10 @@ zkevm:
 Artifacts are provided by contract build tool such as [`hardhat`](https://hardhat.org).
 
 The `roar` tool walks the artifacts folder recursively, so sub-folders can be used to organize artifacts, for example,
-when managing multiple separate projects. However, the contracts names must be unique across all artifacts*.
+when managing multiple separate projects. Multiple contract with the same name are supported - may require artifact
+path clarification in [plan](#plan).
 
 Artifacts folder is `artifacts` by [default](#arguments).
-
-\* - contract resolution by full filename (similar to current function signature) may be added in the future.
 
 ## Chains
 

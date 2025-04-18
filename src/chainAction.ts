@@ -1,8 +1,9 @@
 import { Address, encodeDeployData, encodeFunctionData, getCreateAddress } from 'viem';
 import { AbiFunction, AbiParameter } from 'abitype';
 
-import { Artifact, ChainClients, DeployStepArg, StepArg, DeployStep, CallStep, Step, Deploy, Action } from './type';
+import { Artifact, ChainClients, DeployStepArg, StepArg, DeployStep, CallStep, Step, Deploy, Action, ArtifactRegistry } from './type';
 import { isContractAddress, resolveInput, serializeReference } from './parse';
+import { CALL_ARTIFACT, CALL_SIGNATURE } from './constant';
 
 const collectChainDeploys = (
   deploys: Map<string, Deploy>,
@@ -49,7 +50,7 @@ const resolveChainStepActions = (
   steps: readonly Step[],
   deploys: ReadonlyMap<string, Deploy>,
   nonce: number,
-  artifacts: ReadonlyMap<string, Artifact>,
+  artifactRegistry: ArtifactRegistry,
 ): Action[] => {
   type Param = string | Param[] | { [key: string]: Param };
 
@@ -97,12 +98,64 @@ const resolveChainStepActions = (
     return params;
   };
 
-  const toDeployAction = (step: DeployStep, index: number): Action => {
-    const artifact = artifacts.get(step.name);
-    if (artifact == null) {
-      throw new Error(`Chain ${chainName} call action at #${index} missing artifact for "${step.name}" deploy`);
+  const resolveArtifact = (
+    name: string,
+    artifactPath: string | undefined,
+    description: string,
+  ): Artifact => {
+    const artifact = artifactRegistry.artifacts.get(name);
+    if (artifact != null) {
+      return artifact;
     }
 
+    const paths = artifactRegistry.resolutions.get(name);
+    if (paths == null) {
+      throw new Error(`Chain ${chainName} ${description} missing artifact for "${name}"`);
+    }
+
+    if (paths.size === 1) {
+      const path = [...paths][0];
+      const artifact = artifactRegistry.artifacts.get(path)!;
+      return artifact;
+    }
+
+    if (!artifactPath) {
+      throw new Error(
+        `Chain ${chainName} ${description} usage of "${name}" must specify artifact path field ` +
+        `"${CALL_ARTIFACT}" to resolve ambiguity among ${paths.size} path candidates ` +
+        `(${[...paths].sort().map((s) => `"${s}"`).join(', ')})`
+      );
+    }
+
+    const tryPath = (path: string): Artifact | null => {
+      if (!paths.has(path)) {
+        return null;
+      }
+
+      const artifact = artifactRegistry.artifacts.get(path)!;
+      return artifact;
+    };
+
+    const badPath = (): never => {
+      throw new Error(
+        `Chain ${chainName} ${description} usage of "${name}" specifies artifact path ` +
+        `"${artifactPath}" that could not be matched with any of ${paths.size} path candidates ` +
+        `(${[...paths].sort().map((s) => `"${s}"`).join(', ')})`
+      );
+    };
+
+    return (
+      tryPath(artifactPath) ??
+      tryPath(`${artifactPath}/${name}.sol/${name}.json`) ??
+      tryPath(`${artifactPath}.sol/${name}.json`) ??
+      tryPath(`${artifactPath}/${name}.json`) ??
+      tryPath(`${artifactPath}.json`) ??
+      badPath()
+    );
+  };
+
+  const toDeployAction = (step: DeployStep, index: number): Action => {
+    const artifact = resolveArtifact(step.name, step.artifact, `deploy action at #${index}`);
     const abi = artifact.constructor == null ? [] : [artifact.constructor];
     const inputs = abi.flatMap((a) => a.inputs);
     const args = resolveArgs(step.args, inputs, `"${step.name}" deploy`);
@@ -149,7 +202,8 @@ const resolveChainStepActions = (
     if (!step.signature) {
       throw new Error(
         `Chain ${chainName} call to function "${step.name}" of artifact "${step.targetName}" must specify ` +
-        `signature field to resolve ambiguity among ${signatures.size} overload candidates`
+        `signature field "${CALL_SIGNATURE}" to resolve ambiguity among ${signatures.size} overload candidates ` +
+        `(${[...signatures].sort().map((s) => `"${s}"`).join(', ')})`
       );
     }
 
@@ -165,7 +219,8 @@ const resolveChainStepActions = (
     const badSignature = (): never => {
       throw new Error(
         `Chain ${chainName} call to function "${step.name}" of artifact "${step.targetName}" specifies signature ` +
-        `"${step.signature}" that could not be matched with any of ${signatures.size} overload candidates`
+        `"${step.signature}" that could not be matched with any of ${signatures.size} overload candidates ` +
+        `(${[...signatures].sort().map((s) => `"${s}"`).join(', ')})`
       );
     };
 
@@ -184,11 +239,7 @@ const resolveChainStepActions = (
       throw new Error(`Chain ${chainName} call action at #${index} has invalid target address "${target}"`);
     }
 
-    const artifact = artifacts.get(step.targetName);
-    if (artifact == null) {
-      throw new Error(`Chain ${chainName} call action at #${index} missing artifact for "${step.targetName}" call target`);
-    }
-
+    const artifact = resolveArtifact(step.targetName, step.artifact, `call action at #${index}`);
     const func = resolveCallFunction(step, artifact);
 
     const abi = [func] as const;
@@ -219,6 +270,7 @@ const resolveChainStepActions = (
 
   const toAction = (step: Step, index: number): Action => {
     console.log(`- ${step.type} #${index}:`);
+    // TODO: consider logging function signature and params for calls & deploys
     switch (step.type) {
       case 'deploy':
         return toDeployAction(step, index);
@@ -237,7 +289,7 @@ const resolveChainStepActions = (
 export const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
-  artifacts: ReadonlyMap<string, Artifact>,
+  artifactRegistry: ArtifactRegistry,
 ): Map<string, Action[]> => {
   console.log();
   const deploys = new Map<string, Deploy>();
@@ -251,7 +303,7 @@ export const resolveChainActions = (
   const chainActions = new Map<string, Action[]>();
   for (const [chainName, steps] of chainSteps) {
     const clients = chainClients.get(chainName)!;
-    const actions = resolveChainStepActions(chainName, steps, deploys, clients.nonce, artifacts);
+    const actions = resolveChainStepActions(chainName, steps, deploys, clients.nonce, artifactRegistry);
     chainActions.set(chainName, actions);
   }
   return chainActions;

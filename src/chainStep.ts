@@ -1,4 +1,4 @@
-import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, REFERENCE_PREFIX } from './constant';
+import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, REFERENCE_PREFIX, CALL_ARTIFACT } from './constant';
 import { PlanElement, Plan, DeployStepArg, StepArg, DeployStep, CallStep, Step } from './type';
 import { isCall, isContract, isContractAddress, isReference, resolveCall, resolveReference, serializeReference } from './parse';
 
@@ -44,7 +44,7 @@ const resolveChainPlanSteps = (
     }
 
     if (typeof value === 'boolean') {
-      value = value ? 1 : 0;
+      value = value ? 1 : 0; // TODO: add Viem ABI encode tests for the evaluated strings
     }
 
     if (typeof value === 'number' || typeof value === 'bigint') {
@@ -70,14 +70,18 @@ const resolveChainPlanSteps = (
     return nested;
   };
 
-  const evaluateCallValue = (value: PlanElement, path: readonly string[], description: string): bigint | undefined => {
+  const evaluateCallValue = (
+    value: PlanElement,
+    path: readonly string[],
+    description: string,
+  ): bigint | undefined => {
     if (value == null) {
       return undefined;
     }
 
     const evaluated = evaluateValue(value, path);
     if (typeof evaluated !== 'string') {
-      throw new Error(`${description} value must resolve to a primitive constant`);
+      throw new Error(`${description} value must resolve to a primitive constant ("${serializeReference(path)}")`);
     }
 
     let callValue: bigint;
@@ -87,10 +91,27 @@ const resolveChainPlanSteps = (
         throw new Error();
       }
     } catch {
-      throw new Error(`${description} value must be a non-negative integer number (got "${evaluated}")`);
+      throw new Error(`${description} value must be a non-negative integer number ("${serializeReference(path)}" has "${evaluated}")`);
     }
 
     return callValue > 0n ? callValue : undefined;
+  };
+
+  const evaluateCallArtifact = (
+    value: PlanElement,
+    path: readonly string[],
+    description: string,
+  ): string | undefined => {
+    if (value == null) {
+      return undefined;
+    }
+
+    const evaluated = evaluateValue(value, path);
+    if (typeof evaluated !== 'string') {
+      throw new Error(`${description} artifact must resolve to a string constant ("${serializeReference(path)}")`);
+    }
+
+    return evaluated;
   };
 
   const visit = (node: PlanElement, path: readonly string[]): void => {
@@ -105,20 +126,26 @@ const resolveChainPlanSteps = (
         }
 
         if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-          throw new Error(`Invalid contract "${name}" value`);
+          throw new Error(`Invalid contract "${name}" value ("${serializeReference(path)}")`);
         }
 
-        const { [CALL_VALUE]: callValueValue, ...argsValue } = value;
+        const {
+          [CALL_VALUE]: callValueValue,
+          [CALL_ARTIFACT]: callArtifactValue,
+          ...argsValue
+        } = value;
 
         const deployPath = [...path, name];
         const args = evaluateNestedArgs(argsValue, deployPath);
         const deployValue = evaluateCallValue(callValueValue, [...deployPath, CALL_VALUE], `Deploy "${name}"`);
+        const deployArtifact = evaluateCallArtifact(callArtifactValue, [...deployPath, CALL_ARTIFACT], `Deploy "${name}"`);
         const step: DeployStep = {
           type: 'deploy',
           name,
           path: deployPath,
           args,
           value: deployValue,
+          artifact: deployArtifact,
         };
         steps.push(step);
         continue;
@@ -126,20 +153,21 @@ const resolveChainPlanSteps = (
 
       if (isCall(name)) {
         if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-          throw new Error(`Invalid call "${name}" value`);
+          throw new Error(`Invalid call "${name}" value ("${serializeReference(path)}")`);
         }
 
         const {
           [CALL_TARGET]: targetValue,
           [CALL_SIGNATURE]: signatureValue,
           [CALL_VALUE]: callValueValue,
+          [CALL_ARTIFACT]: callArtifactValue,
           ...argsValue
         } = value;
 
         const callName = resolveCall(name);
         const target = evaluateValue(targetValue, [...path, callName, CALL_TARGET]);
         if (target == null) {
-          throw new Error(`Call "${name}" target is missing`);
+          throw new Error(`Call "${name}" target is missing ("${serializeReference(path)}")`);
         }
 
         let targetName: string;
@@ -147,26 +175,26 @@ const resolveChainPlanSteps = (
           targetName = target.path[target.path.length - 1];
         } else {
           if (typeof targetValue !== 'string' || !isReference(targetValue)) {
-            throw new Error(`Call "${name}" target must be a contract reference`);
+            throw new Error(`Call "${name}" target must be a contract reference ("${serializeReference(path)}")`);
           }
 
-          const path = resolveReference(targetValue, chainName);
-          targetName = path[path.length - 1];
+          const refPath = resolveReference(targetValue, chainName);
+          targetName = refPath[refPath.length - 1];
           if (!isContract(targetName)) {
-            throw new Error(`Call "${name}" target must be a contract reference`);
+            throw new Error(`Call "${name}" target must be a contract reference ("${serializeReference(path)}")`);
           }
         }
 
         let signature: string | undefined;
         if (signatureValue != null) {
           if (typeof signatureValue !== 'string') {
-            throw new Error(`Call "${name}" signature must be a constant or reference string`);
+            throw new Error(`Call "${name}" signature must be a constant or reference string ("${serializeReference(path)}")`);
           }
 
           if (isReference(signatureValue)) {
             const evaluated = evaluateReference(signatureValue);
             if (typeof evaluated !== 'string') {
-              throw new Error(`Call "${name}" signature reference must resolve to a string constant`);
+              throw new Error(`Call "${name}" signature reference must resolve to a string constant ("${serializeReference(path)}")`);
             }
             signature = evaluated;
           } else {
@@ -177,6 +205,7 @@ const resolveChainPlanSteps = (
         const callPath = [...path, callName];
         const args = evaluateNestedArgs(argsValue, callPath);
         const callValue = evaluateCallValue(callValueValue, [...callPath, CALL_VALUE], `Call "${name}"`);
+        const callArtifact = evaluateCallArtifact(callArtifactValue, [...callPath, CALL_ARTIFACT], `Call "${name}"`);
         const step: CallStep = {
           type: 'call',
           name: callName,
@@ -185,6 +214,7 @@ const resolveChainPlanSteps = (
           args,
           signature,
           value: callValue,
+          artifact: callArtifact,
         };
         steps.push(step);
         continue;
