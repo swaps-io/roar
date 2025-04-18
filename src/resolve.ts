@@ -11,6 +11,7 @@ import {
   REFERENCE_PREFIX,
   REFERENCE_SEPARATOR,
 } from './constant';
+import { joinComma } from './util';
 
 export const resolveCall = (name: string): string => {
   name = name.slice(CALL_PREFIX.length);
@@ -30,7 +31,7 @@ export const createReference = (path: readonly string[]): string => {
   return REFERENCE_PREFIX + path.join(REFERENCE_SEPARATOR);
 };
 
-export const resolveInput = (name: string): string => {
+export const resolveInput = (name: string = '', index: number): string => {
   let keepResolving = true;
   while (keepResolving) {
     keepResolving = false;
@@ -47,6 +48,12 @@ export const resolveInput = (name: string): string => {
       }
     }
   }
+
+  // Anonymous inputs can be specified by their index
+  if (!name) {
+    return `${index}`;
+  }
+
   return name;
 };
 
@@ -76,7 +83,7 @@ export const resolveArtifact = (
     throw new Error(
       `${description} usage of "${name}" must specify artifact path field ` +
       `"${CALL_ARTIFACT}" to resolve ambiguity among ${paths.size} path candidates ` +
-      `(${[...paths].sort().map((s) => `"${s}"`).join(', ')})`
+      `(${joinComma([...paths].sort())})`
     );
   }
 
@@ -93,7 +100,7 @@ export const resolveArtifact = (
     throw new Error(
       `${description} usage of "${name}" specifies artifact path ` +
       `"${artifactPath}" that could not be matched with any of ${paths.size} path candidates ` +
-      `(${[...paths].sort().map((s) => `"${s}"`).join(', ')})`
+      `(${joinComma([...paths].sort())})`
     );
   };
 
@@ -134,7 +141,7 @@ export const resolveFunction = (
     throw new Error(
       `${description} to function "${name}" of artifact "${targetName}" must specify ` +
       `signature field "${CALL_SIGNATURE}" to resolve ambiguity among ${signatures.size} overload candidates ` +
-      `(${[...signatures].sort().map((s) => `"${s}"`).join(', ')})`
+      `(${joinComma([...signatures].sort())})`
     );
   }
 
@@ -151,7 +158,7 @@ export const resolveFunction = (
     throw new Error(
       `${description} to function "${name}" of artifact "${targetName}" specifies signature ` +
       `"${signature}" that could not be matched with any of ${signatures.size} overload candidates ` +
-      `(${[...signatures].sort().map((s) => `"${s}"`).join(', ')})`
+      `(${joinComma([...signatures].sort())})`
     );
   };
 
@@ -197,16 +204,24 @@ export const resolveArguments = (
   deploys: ReadonlyMap<string, Deploy>,
   description: string,
 ): ViemValue[] => {
+  if (args.size > inputs.length) {
+    throw new Error(
+      `${description} detected unused arguments: ABI specifies ` +
+      `${inputs.length} inputs, but ${args.size} arguments provided`,
+    );
+  }
+
   const values: ViemValue[] = [];
-  for (const input of inputs) {
+  for (let index = 0; index < inputs.length; index++) {
+    const input = inputs[index];
     if (!input.name) {
       throw new Error(`ABI input for ${description} has "name" missing`);
     }
 
-    const name = resolveInput(input.name);
+    const name = resolveInput(input.name, index);
     const arg = args.get(name);
     if (arg == null) {
-      throw new Error(`Argument "${name}" was not provided for ${description}`);
+      throw new Error(`${description} does not provide argument "${name}" required by ABI inputs`);
     }
 
     const value = resolveValue(arg, deploys);

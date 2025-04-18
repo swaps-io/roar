@@ -4,6 +4,7 @@ import { CHAINS } from './chains';
 import { Plan, ChainClients, Lock, Deployer } from './type';
 import { joinPath } from './file';
 import { loadLock, saveLock } from './lock';
+import { joinComma } from './util';
 
 export const resolveChainClients = async (
   deployer: Deployer,
@@ -15,10 +16,17 @@ export const resolveChainClients = async (
   const lock = await loadLock(lockPath);
 
   if (lock != null) {
-    const lockChains = Object.keys(lock.nonces).sort().join(', ');
-    const planChains = [...chainPlans.keys()].sort().join(', ');
+    const lockChainItems = Object.keys(lock.nonces).sort();
+    const lockChains = joinComma(lockChainItems);
+
+    const planChainItems = [...chainPlans.keys()].sort();
+    const planChains = joinComma(planChainItems);
+
     if (lockChains !== planChains) {
-      throw new Error(`Lock "${lockPath}" chains "${lockChains}" are not the same as the plan chains "${planChains}"`);
+      throw new Error(
+        `Lock "${lockPath}" chains "${lockChains}" (${lockChainItems.length}) ` +
+        `are not the same as the plan chains "${planChains}" (${planChainItems.length})`,
+      );
     }
   }
 
@@ -68,7 +76,7 @@ export const resolveChainClients = async (
     console.log(`- ${chainName}:`);
     console.log(`  - id: ${chain.id}`);
     console.log(`  - nonce: ${clients.nonce}`);
-    console.log(`  - rpc: ${chain.rpcUrls.default.http.join(', ')}`);
+    console.log(`  - rpc: ${joinComma(chain.rpcUrls.default.http)}`);
   }
   return chainClients;
 };

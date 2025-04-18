@@ -13,7 +13,7 @@ const collectChainDeploys = (
   nonce: number,
 ): void => {
   const totalDeploys = steps.reduce((c, s) => s.type === 'deploy' ? c + 1 : c, 0);
-  console.log(`Deploys on ${chainName} (${totalDeploys}):`);
+  console.log(`Deploys on chain "${chainName}" (${totalDeploys}):`);
 
   for (let index = 0; index < steps.length; index++) {
     const step = steps[index];
@@ -32,7 +32,7 @@ const collectChainDeploys = (
       nonce: BigInt(nonce + index),
     });
     const deploy: Deploy = {
-      index,
+      index: index,
       address,
     };
     deploys.set(reference, deploy);
@@ -53,10 +53,11 @@ const resolveChainStepActions = (
   artifacts: ArtifactRegistry,
 ): Action[] => {
   const toDeployAction = (step: DeployStep, index: number): Action => {
-    const artifact = resolveArtifact(step.name, step.artifact, artifacts, `Chain ${chainName} deploy action at #${index}`);
+    const description = `Chain "${chainName}" deploy of "${step.name}" action at #${index}`;
+    const artifact = resolveArtifact(step.name, step.artifact, artifacts, description);
     const abi = artifact.constructor == null ? [] : [artifact.constructor];
     const inputs = abi.flatMap((a) => a.inputs);
-    const args = resolveArguments(step.args, inputs, deploys, `"${step.name}" deploy`);
+    const args = resolveArguments(step.args, inputs, deploys, description);
 
     const data = encodeDeployData({
       bytecode: artifact.bytecode,
@@ -86,17 +87,19 @@ const resolveChainStepActions = (
   };
 
   const toCallAction = (step: CallStep, index: number): Action => {
+    const fullName = `${step.target.name}.${step.name}`;
+    const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`
     const target = resolveValue(step.target.address, deploys);
     if (!isContractAddress(target)) {
-      throw new Error(`Chain ${chainName} call action at #${index} has invalid target address "${target}"`);
+      throw new Error(`${description} has invalid target address "${target}"`);
     }
 
-    const artifact = resolveArtifact(step.target.name, step.artifact, artifacts, `Chain ${chainName} call action at #${index}`);
-    const func = resolveFunction(step.name, step.target.name, step.signature, artifact, `Chain ${chainName} call`);
+    const artifact = resolveArtifact(step.target.name, step.artifact, artifacts, description);
+    const func = resolveFunction(step.name, step.target.name, step.signature, artifact, description);
 
     const abi = [func] as const;
     const inputs = abi.flatMap((a) => a.inputs);
-    const args = resolveArguments(step.args, inputs, deploys, `"${step.target.name}.${step.name}" call`);
+    const args = resolveArguments(step.args, inputs, deploys, description);
 
     const data = encodeFunctionData({
       abi,
@@ -110,7 +113,7 @@ const resolveChainStepActions = (
       value: step.value,
     };
 
-    console.log(`  - name: ${step.target.name}.${step.name}`);
+    console.log(`  - name: ${fullName}`);
     if (step.signature) {
       console.log(`  - signature: ${step.signature}`);
     }
@@ -140,7 +143,7 @@ const resolveChainStepActions = (
     }
   };
 
-  console.log(`Actions on ${chainName} (${steps.length}):`);
+  console.log(`Actions on chain "${chainName}" (${steps.length}):`);
   const actions = steps.map(toAction);
   return actions;
 };

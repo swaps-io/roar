@@ -11,3 +11,7 @@ export const jsonStringify = (value: any, prettify = false): string => {
 const jsonReplacer = (key: string, value: any): any => {
   return typeof value === 'bigint' ? value.toString() : value;
 };
+
+export const joinComma = (strings: readonly string[]): string => {
+  return strings.join(', ');
+};

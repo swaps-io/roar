@@ -1,9 +1,10 @@
 import { Plan } from './type';
 import { CHAINS } from './chains';
+import { joinComma } from './util';
 
 export const extractChainPlans = (plan: Plan): Map<string, Plan> => {
   const chainNames = Object.keys(plan).filter((key) => CHAINS.has(key));
-  console.log(`- chains (${chainNames.length}): ${chainNames.join(', ')}`);
+  console.log(`- chains (${chainNames.length}): ${joinComma(chainNames)}`);
 
   const chainPlans = new Map<string, Plan>();
   for (const chainName of chainNames) {
