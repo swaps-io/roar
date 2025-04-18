@@ -14,12 +14,12 @@ const main = async (): Promise<void> => {
   const config = await loadConfig(args.configPath);
   const deployer = createDeployer(config.deployer.privateKey);
   const plan = await loadPlan(args.planPath, deployer.address);
-  const artifactRegistry = await loadArtifacts(args.artifactsPath);
+  const artifacts = await loadArtifacts(args.artifactsPath);
 
   const chainPlans = extractChainPlans(plan);
   const chainClients = await resolveChainClients(deployer, chainPlans, args.locksPath, args.planPath);
   const chainSteps = resolveChainSteps(plan, chainPlans);
-  const chainActions = resolveChainActions(chainSteps, chainClients, artifactRegistry);
+  const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
 
   await executeChainActions(chainActions, chainClients, config.execution);
 };

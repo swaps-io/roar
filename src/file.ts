@@ -3,6 +3,8 @@ import fs from 'fs/promises';
 import fp from 'path';
 import yaml from 'js-yaml';
 
+import { jsonStringify } from './util';
+
 export const checkFileExists = async (path: string): Promise<boolean> => {
   try {
     await fs.access(path);
@@ -79,6 +81,6 @@ export const saveYaml = async (path: string, object: any): Promise<void> => {
 };
 
 export const saveJson = async (path: string, object: any): Promise<void> => {
-  const text = JSON.stringify(object);
+  const text = jsonStringify(object);
   await saveText(path, text);
 };

@@ -1,5 +1,5 @@
-import { CHAINS } from './chains';
 import { Plan } from './type';
+import { CHAINS } from './chains';
 
 export const extractChainPlans = (plan: Plan): Map<string, Plan> => {
   const chainNames = Object.keys(plan).filter((key) => CHAINS.has(key));

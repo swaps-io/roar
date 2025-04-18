@@ -23,8 +23,12 @@ export type Config = {
   execution: ConfigExecution,
 };
 
-export type PlanElement = string | number | boolean | null | PlanElement[] | { [key: string]: PlanElement };
-export type Plan = { [key: string]: PlanElement };
+export type PlanNode = string | number | boolean | null | PlanNode[] | { [key: string]: PlanNode };
+export type Plan = { [key: string]: PlanNode };
+export type PlanContext = {
+  plan: Plan,
+  chainName: string,
+};
 
 export type Artifact = {
   name: string,
@@ -48,14 +52,20 @@ export type ChainClients = {
   nonce: number,
 };
 
-export class DeployStepArg { public constructor(public readonly path: readonly string[]) {} }
-export type StepArg = string | StepArg[] | DeployStepArg | { [key: string]: StepArg };
+export class DeployValue { public constructor(public readonly path: readonly string[]) {} }
+export type ResolvedValue = boolean | number | bigint | string | ResolvedValue[] | { [key: string]: ResolvedValue };
+export type Value = ResolvedValue | Value[] | DeployValue | { [key: string]: Value };
+
+export type CallTarget = {
+  name: string,
+  address: string | DeployValue,
+};
 
 export type DeployStep = {
   type: 'deploy',
   name: string,
-  path: string[],
-  args: Map<string, StepArg>,
+  path: readonly string[],
+  args: Map<string, Value>,
   value: bigint | undefined,
   artifact: string | undefined,
 };
@@ -63,11 +73,10 @@ export type DeployStep = {
 export type CallStep = {
   type: 'call',
   name: string,
-  targetName: string,
-  target: StepArg,
-  args: Map<string, StepArg>,
-  signature: string | undefined,
+  target: CallTarget,
+  args: Map<string, Value>,
   value: bigint | undefined,
+  signature: string | undefined,
   artifact: string | undefined,
 }
 
