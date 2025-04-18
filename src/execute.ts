@@ -54,13 +54,13 @@ const executeSingleChainAction = async (
           }
         }
       } else if (nonce > action.nonce) {
-        console.warn(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
-        console.warn('Assuming this action has been executed and thus will advance to next action');
-        console.warn('Reminder: nonces must be preserved for deploy, interference cannot be detected by this tool - thus, may mess up deploy');
+        console.log(`On-chain nonce [${nonce}] is ahead of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}] ⚠️`);
+        console.log('Assuming this action has been executed and thus will advance to next action');
+        console.log('Reminder: nonces must be preserved for deploy, interference cannot be detected by this tool - thus, may mess up deploy');
       } else { // nonce < action.nonce
-        console.warn(`On-chain nonce [${nonce}] is behind of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}]`);
-        console.warn('This might be due to slow on-chain state sync and will fix itself after some enforced retries');
-        console.warn(`After ${config.nonceBehindRetries} retries the issue assumed to be due to on-chain revert - thus, will retreat to previous action`);
+        console.log(`On-chain nonce [${nonce}] is behind of action #${actionIndex}/${totalActions} on ${chainName} nonce [${action.nonce}] ⚠️`);
+        console.log('This might be due to slow on-chain state sync and will fix itself after some enforced retries');
+        console.log(`After ${config.nonceBehindRetries} retries the issue assumed to be due to on-chain revert - thus, will retreat to previous action`);
         if (retry < config.nonceBehindRetries) {
           throw new Error('On-chain nonce is behind action nonce');
         }
@@ -72,9 +72,9 @@ const executeSingleChainAction = async (
       console.log(`Action #${actionIndex}/${totalActions} on ${chainName} finished [${action.nonce}] ✅`);
       return 1; // Advance
     } catch (e) {
-      console.warn(`Action #${actionIndex}/${totalActions} on ${chainName} failed [${action.nonce}] ❌`);
-      console.warn('Action error:', e);
-      console.warn(`Action will be executed again as retry #${++retry} after ${config.retryDelay} ms delay`);
+      console.log(`Action #${actionIndex}/${totalActions} on ${chainName} failed [${action.nonce}] ❌`);
+      console.log('Action error:', e);
+      console.log(`Action will be executed again as retry #${++retry} after ${config.retryDelay} ms delay 💤`);
       await new Promise((r) => setTimeout(r, config.retryDelay));
     }
   }

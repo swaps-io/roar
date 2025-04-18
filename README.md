@@ -14,6 +14,14 @@ Contract deployment management tool.
 - Provide deployment [plan](#plan) ([default](#arguments) file: `plan.yaml`)
 - Run the tool: `bun rr`
 
+> [!TIP]
+>
+> Use `tea` to preserve logs to path: `<command> 2>&1 | tee <log-path>` (`2>&1` for error capture).
+>
+> _Example:_ `bun rr --plan plans/my-plan.yaml 2>&1 | tee logs/my-plan.txt`
+>
+> _Before_ running `tee` command make sure the log file _folder exists_. Otherwise _no_ log file will be created.
+
 ## Arguments
 
 The `roar` tool allows to override defaults with the following command line arguments:

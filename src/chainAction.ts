@@ -1,4 +1,4 @@
-import { Address, encodeDeployData, encodeFunctionData, getCreateAddress } from 'viem';
+import { Address, encodeDeployData, encodeFunctionData, getCreateAddress, toFunctionSelector, toFunctionSignature } from 'viem';
 import { AbiFunction, AbiParameter } from 'abitype';
 
 import { Artifact, ChainClients, DeployStepArg, StepArg, DeployStep, CallStep, Step, Deploy, Action, ArtifactRegistry } from './type';
@@ -174,6 +174,10 @@ const resolveChainStepActions = (
     };
 
     console.log(`  - name: ${step.name}`);
+    if (step.artifact) {
+      console.log(`  - artifact: ${step.artifact}`);
+    }
+    console.log(`  - arguments: ${JSON.stringify(args)}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
     if (action.value != null) {
@@ -259,6 +263,14 @@ const resolveChainStepActions = (
     };
 
     console.log(`  - name: ${step.targetName}.${step.name}`);
+    if (step.signature) {
+      console.log(`  - signature: ${step.signature}`);
+    }
+    if (step.artifact) {
+      console.log(`  - artifact: ${step.artifact}`);
+    }
+    console.log(`  - function: ${toFunctionSignature(abi[0])} [${toFunctionSelector(abi[0])}]`);
+    console.log(`  - arguments: ${JSON.stringify(args)}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - to: ${action.to}`);
     console.log(`  - data: ${action.data}`);
@@ -270,7 +282,6 @@ const resolveChainStepActions = (
 
   const toAction = (step: Step, index: number): Action => {
     console.log(`- ${step.type} #${index}:`);
-    // TODO: consider logging function signature and params for calls & deploys
     switch (step.type) {
       case 'deploy':
         return toDeployAction(step, index);
