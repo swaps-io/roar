@@ -4,7 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "rr": "DO_NOT_TRACK=1 bun run src/index.ts"
+    "roar": "DO_NOT_TRACK=1 bun run src/index.ts",
+    "rr": "bun roar",
+    "compile": "DO_NOT_TRACK=1 bun build src/index.ts --compile --outfile out/roar",
+    "cc": "bun compile"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
