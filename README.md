@@ -39,11 +39,11 @@ _Example:_ `bun rr --plan some/custom/folder/plan.yaml -l .hidden/locks`.
 ## Config
 
 Config file allows to adjust some of the deploy process parameters. Below is an example of config file content
-made out of defaults (except marked `✏`) with field descriptions.
+made out of defaults (except marked `🖋️`) with field descriptions.
 
 ```yaml
 deployer:
-  privateKey: '0x0101010101010101010101010101010101010101010101010101010101010101'  # Private key of deployer account ✏
+  privateKey: '0x0101010101010101010101010101010101010101010101010101010101010101'  # Private key of deployer account 🖋️
 
 execution:
   dryRun: true  # Should dry mode be enabled. Prevents actual on-chain transactions. Useful for debugging
