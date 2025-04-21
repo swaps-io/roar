@@ -1,9 +1,22 @@
 import { Address, encodeDeployData, encodeFunctionData, getCreateAddress, toFunctionSelector, toFunctionSignature } from 'viem';
 
-import { ChainClients, DeployStep, CallStep, Step, Action, ArtifactRegistry } from './type';
+import {
+  ChainClients,
+  DeployStep,
+  CallStep,
+  Step,
+  Action,
+  ArtifactRegistry,
+  ActionTransaction,
+  CallActionResolution,
+  DeployActionResolution,
+  ActionsSpec,
+  ChainActionsSpec,
+  ChainActionSpec,
+} from './type';
 import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
 import { isContractAddress, } from './parse';
-import { jsonStringify } from './util';
+import { jsonStringify, yamlDump } from './util';
 
 const resolveStepDeploys = (
   steps: readonly Step[],
@@ -64,27 +77,38 @@ const resolveStepActions = (
       args,
     });
 
-    const action: Action = {
+    const resolution: DeployActionResolution = {
+      type: 'deploy',
+      name: step.name,
+      reference: reference,
+      artifact: artifact.path,
+      arguments: jsonStringify(args),
+      address: deploys.get(reference)!,
+    };
+    console.log(`  - resolution:`);
+    console.log(`    - name: ${resolution.name}`);
+    console.log(`    - reference: ${resolution.reference}`);
+    console.log(`    - artifact: ${resolution.artifact}`);
+    console.log(`    - arguments: ${resolution.arguments}`);
+    console.log(`    - address: ${resolution.address} 🔮`);
+
+    const transaction: ActionTransaction = {
       nonce: nonce + index,
       to: undefined, // New contract
       data,
       value: step.value,
     };
-
-    console.log(`  - resolution:`);
-    console.log(`    - name: ${step.name}`);
-    console.log(`    - reference: ${reference}`);
-    console.log(`    - artifact: ${artifact.path}`);
-    console.log(`    - arguments: ${jsonStringify(args)}`);
-    console.log(`    - address: ${deploys.get(reference)} 🔮`);
-
     console.log(`  - transaction:`);
-    console.log(`    - nonce: ${action.nonce}`);
-    if (action.value != null) {
-      console.log(`    - value: ${action.value}`);
+    console.log(`    - nonce: ${transaction.nonce}`);
+    if (transaction.value != null) {
+      console.log(`    - value: ${transaction.value}`);
     }
-    console.log(`    - data: ${action.data}`);
+    console.log(`    - data: ${transaction.data}`);
 
+    const action: Action = {
+      resolution,
+      transaction,
+    };
     return action;
   };
 
@@ -108,27 +132,38 @@ const resolveStepActions = (
       args,
     });
 
-    const action: Action = {
+    const resolution: CallActionResolution = {
+      type: 'call',
+      name: fullName,
+      artifact: artifact.path,
+      function: toFunctionSignature(abi[0]),
+      selector: toFunctionSelector(abi[0]),
+      arguments: jsonStringify(args),
+    }
+    console.log(`  - resolution:`);
+    console.log(`    - name: ${resolution.name}`);
+    console.log(`    - artifact: ${resolution.artifact}`);
+    console.log(`    - function: ${resolution.function} [${resolution.selector}]`);
+    console.log(`    - arguments: ${resolution.arguments}`);
+
+    const transaction: ActionTransaction = {
       nonce: nonce + index,
       to: target,
       data,
       value: step.value,
     };
-
-    console.log(`  - resolution:`);
-    console.log(`    - name: ${fullName}`);
-    console.log(`    - artifact: ${artifact.path}`);
-    console.log(`    - function: ${toFunctionSignature(abi[0])} [${toFunctionSelector(abi[0])}]`);
-    console.log(`    - arguments: ${jsonStringify(args)}`);
-
     console.log(`  - transaction:`);
-    console.log(`    - nonce: ${action.nonce}`);
-    console.log(`    - to: ${action.to}`);
-    if (action.value != null) {
-      console.log(`    - value: ${action.value}`);
+    console.log(`    - nonce: ${transaction.nonce}`);
+    console.log(`    - to: ${transaction.to}`);
+    if (transaction.value != null) {
+      console.log(`    - value: ${transaction.value}`);
     }
-    console.log(`    - data: ${action.data}`);
+    console.log(`    - data: ${transaction.data}`);
 
+    const action: Action = {
+      resolution,
+      transaction,
+    };
     return action;
   };
 
@@ -165,6 +200,47 @@ const resolveActions = (
   return chainActions;
 }
 
+const generateActionsSpec = (
+  chainClients: ReadonlyMap<string, ChainClients>,
+  chainActions: ReadonlyMap<string, Action[]>,
+): ActionsSpec => {
+  const spec: ActionsSpec = {};
+  for (const [chainName, actions] of chainActions) {
+    const clients = chainClients.get(chainName)!;
+
+    const actionSpecs: ChainActionSpec[] = [];
+    for (const action of actions) {
+      const actionSpec: ChainActionSpec = {
+        ...action.resolution,
+        nonce: action.transaction.nonce,
+      };
+      actionSpecs.push(actionSpec);
+    }
+
+    const chainSpec: ChainActionsSpec = {
+      id: clients.public.chain.id,
+      name: clients.public.chain.name,
+      deployer: {
+        address: clients.wallet.account.address,
+        nonce: clients.nonce,
+      },
+      actions: actionSpecs,
+    };
+    spec[chainName] = chainSpec;
+  }
+  return spec;
+};
+
+const showActionsSpec = (
+  chainClients: ReadonlyMap<string, ChainClients>,
+  chainActions: ReadonlyMap<string, Action[]>,
+): void => {
+  const spec = generateActionsSpec(chainClients, chainActions);
+  console.log();
+  console.log('Actions specification:');
+  console.log(yamlDump(spec));
+};
+
 export const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
@@ -172,5 +248,6 @@ export const resolveChainActions = (
 ): Map<string, Action[]> => {
   const deploys = resolveDeploys(chainSteps, chainClients);
   const chainActions = resolveActions(chainSteps, chainClients, artifacts, deploys);
+  showActionsSpec(chainClients, chainActions);
   return chainActions;
 };

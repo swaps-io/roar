@@ -49,7 +49,7 @@ export type Deployer = PrivateKeyAccount;
 
 export type ChainClients = {
   wallet: WalletClient<Transport, Chain, Deployer>,
-  public: PublicClient,
+  public: PublicClient<Transport, Chain>,
   nonce: number,
 };
 
@@ -83,12 +83,53 @@ export type CallStep = {
 
 export type Step = DeployStep | CallStep;
 
-export type Action = {
-  nonce: number;
-  to: Hex | undefined;
-  data: Hex;
-  value: bigint | undefined;
+export type DeployActionResolution = {
+  type: 'deploy',
+  name: string,
+  reference: string,
+  artifact: string,
+  arguments: string,
+  address: string,
 };
+
+export type CallActionResolution = {
+  type: 'call',
+  name: string,
+  artifact: string,
+  function: string,
+  selector: string,
+  arguments: string,
+};
+
+export type ActionResolution = DeployActionResolution | CallActionResolution;
+
+export type ActionTransaction = {
+  nonce: number,
+  to: Hex | undefined,
+  data: Hex,
+  value: bigint | undefined,
+};
+
+export type Action = {
+  resolution: ActionResolution,
+  transaction: ActionTransaction,
+};
+
+export type ChainActionSpec = ActionResolution & Pick<ActionTransaction, 'nonce'>;
+
+export type ChainDeployerSpec = {
+  address: string,
+  nonce: number,
+};
+
+export type ChainActionsSpec = {
+  id: number,
+  name: string,
+  deployer: ChainDeployerSpec,
+  actions: ChainActionSpec[],
+};
+
+export type ActionsSpec = Record<string, ChainActionsSpec>;
 
 export type Lock = {
   nonces: Record<string, number>,

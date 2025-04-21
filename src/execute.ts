@@ -1,8 +1,8 @@
-import { ConfigExecution, ChainClients, Action } from './type';
+import { ConfigExecution, ChainClients, Action, ActionTransaction } from './type';
 
 const executeSingleChainAction = async (
   chainName: string,
-  action: Action,
+  transaction: ActionTransaction,
   clients: ChainClients,
   actionIndex: number,
   totalActions: number,
@@ -10,7 +10,7 @@ const executeSingleChainAction = async (
 ): Promise<number> => {
   let retry = 0;
   while (true) {
-    console.log(`Action #${actionIndex} (${totalActions}) on ${chainName} started [${action.nonce}] ⏳`);
+    console.log(`Action #${actionIndex} (${totalActions}) on ${chainName} started [${transaction.nonce}] ⏳`);
     if (retry > 0) {
       console.log(`This action execution is retry #${retry}, i.e. previous attempt has failed`);
     }
@@ -19,22 +19,22 @@ const executeSingleChainAction = async (
       const from = clients.wallet.account.address;
       const nonce = await clients.public.getTransactionCount({ address: from });
 
-      if (nonce === action.nonce) {
+      if (nonce === transaction.nonce) {
         console.log(`Executing action #${actionIndex} (${totalActions}) on ${chainName}:`);
-        console.log(`- nonce: ${action.nonce}`);
-        if (action.to != null) {
-          console.log(`- to: ${action.to}`);
+        console.log(`- nonce: ${transaction.nonce}`);
+        if (transaction.to != null) {
+          console.log(`- to: ${transaction.to}`);
         }
-        console.log(`- data: ${action.data}`);
-        if (action.value != null) {
-          console.log(`- value: ${action.value}`);
+        console.log(`- data: ${transaction.data}`);
+        if (transaction.value != null) {
+          console.log(`- value: ${transaction.value}`);
         }
 
         const hash = await clients.wallet.sendTransaction({
-          nonce: action.nonce,
-          to: action.to,
-          data: action.data,
-          value: action.value,
+          nonce: transaction.nonce,
+          to: transaction.to,
+          data: transaction.data,
+          value: transaction.value,
         });
         console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" transaction sent:`);
         console.log(`- hash: ${hash}`);
@@ -48,26 +48,26 @@ const executeSingleChainAction = async (
         if (receipt.contractAddress) {
           console.log(`- contract: ${receipt.contractAddress}`);
         }
-      } else if (nonce > action.nonce) {
-        console.log(`On-chain nonce [${nonce}] is ahead of nonce [${action.nonce}] of action #${actionIndex} (${totalActions}) on chain "${chainName}" ⚠️`);
+      } else if (nonce > transaction.nonce) {
+        console.log(`On-chain nonce [${nonce}] is ahead of nonce [${transaction.nonce}] of action #${actionIndex} (${totalActions}) on chain "${chainName}" ⚠️`);
         console.log('Assuming this action has been executed and thus will advance to next action');
         console.log('Reminder: nonces must be preserved for deploy, interference cannot be detected by this tool - thus, may mess up deploy');
-      } else { // nonce < action.nonce
-        console.log(`On-chain nonce [${nonce}] is behind of nonce [${action.nonce}] of action #${actionIndex} (${totalActions}) on chain "${chainName}" ⚠️`);
+      } else { // nonce < atx.nonce
+        console.log(`On-chain nonce [${nonce}] is behind of nonce [${transaction.nonce}] of action #${actionIndex} (${totalActions}) on chain "${chainName}" ⚠️`);
         console.log('This might be due to slow on-chain state sync and will fix itself after some enforced retries');
         console.log(`After ${config.nonceBehindRetries} retries the issue assumed to be due to on-chain revert - thus, will retreat to previous action`);
         if (retry < config.nonceBehindRetries) {
           throw new Error('On-chain nonce is behind action nonce');
         }
 
-        console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" retreated [${action.nonce}] ⚠️`);
-        return action.nonce - nonce; // Retreat
+        console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" retreated [${transaction.nonce}] ⚠️`);
+        return transaction.nonce - nonce; // Retreat
       }
 
-      console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" finished [${action.nonce}] ✅`);
+      console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" finished [${transaction.nonce}] ✅`);
       return 1; // Advance
     } catch (e) {
-      console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" failed [${action.nonce}] ❌`);
+      console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" failed [${transaction.nonce}] ❌`);
       console.log('Action error:', e);
       console.log(`Action will be executed again as retry #${++retry} after ${config.retryDelay} ms delay 💤`);
       await new Promise((r) => setTimeout(r, config.retryDelay));
@@ -83,7 +83,7 @@ const executeSingleChainActions = async (
 ): Promise<void> => {
   console.log(`Execution of ${actions.length} actions on ${chainName} started [${clients.nonce}] ⏳`);
   for (let index = 0; index < actions.length;) {
-    const delta = await executeSingleChainAction(chainName, actions[index], clients, index, actions.length, config);
+    const delta = await executeSingleChainAction(chainName, actions[index].transaction, clients, index, actions.length, config);
     index += delta;
     if (index < 0) {
       index = 0;
