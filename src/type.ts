@@ -32,6 +32,7 @@ export type PlanContext = {
 
 export type Artifact = {
   name: string,
+  path: string,
   source: string,
   bytecode: Hex,
   constructor: AbiConstructor | undefined,
@@ -48,7 +49,7 @@ export type Deployer = PrivateKeyAccount;
 
 export type ChainClients = {
   wallet: WalletClient<Transport, Chain, Deployer>,
-  public: PublicClient,
+  public: PublicClient<Transport, Chain>,
   nonce: number,
 };
 
@@ -85,6 +86,8 @@ export type Step = DeployStep | CallStep;
 export type Deploy = {
   index: number,
   address: string,
+  description: string,
+  artifact: Artifact,
 };
 
 export type Action = {
