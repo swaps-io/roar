@@ -238,7 +238,7 @@ const showActionsSpec = (
   const spec = generateActionsSpec(chainClients, chainActions);
   console.log();
   console.log('Actions specification:');
-  console.log(yamlDump(spec));
+  console.log(yamlDump(spec).trimEnd());
 };
 
 export const resolveChainActions = (

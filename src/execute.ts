@@ -81,7 +81,7 @@ const executeSingleChainActions = async (
   clients: ChainClients,
   config: ConfigExecution,
 ): Promise<void> => {
-  console.log(`Execution of ${actions.length} actions on ${chainName} started [${clients.nonce}] ⏳`);
+  console.log(`Execution of ${actions.length} actions on chain "${chainName}" started [${clients.nonce}] ⏳`);
   for (let index = 0; index < actions.length;) {
     const delta = await executeSingleChainAction(chainName, actions[index].transaction, clients, index, actions.length, config);
     index += delta;
@@ -89,7 +89,7 @@ const executeSingleChainActions = async (
       index = 0;
     }
   }
-  console.log(`Execution of ${actions.length} actions on ${chainName} finished [${clients.nonce}] ✅`);
+  console.log(`Execution of ${actions.length} actions on chain "${chainName}" finished [${clients.nonce}] ✅`);
 };
 
 export const executeChainActions = async (

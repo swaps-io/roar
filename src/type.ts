@@ -13,7 +13,7 @@ export type ConfigDeployer = {
 };
 
 export type ConfigExecution = {
-  dryRun: boolean;
+  dryRun: boolean,
   retryDelay: number,
   nonceBehindRetries: number,
 };
