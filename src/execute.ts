@@ -10,7 +10,7 @@ const executeSingleChainAction = async (
 ): Promise<number> => {
   let retry = 0;
   while (true) {
-    console.log(`Action #${actionIndex} (${totalActions}) on ${chainName} started [${transaction.nonce}] ⏳`);
+    console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" started [${transaction.nonce}] ⏳`);
     if (retry > 0) {
       console.log(`This action execution is retry #${retry}, i.e. previous attempt has failed`);
     }
@@ -20,7 +20,7 @@ const executeSingleChainAction = async (
       const nonce = await clients.public.getTransactionCount({ address: from });
 
       if (nonce === transaction.nonce) {
-        console.log(`Executing action #${actionIndex} (${totalActions}) on ${chainName}:`);
+        console.log(`Executing action #${actionIndex} (${totalActions}) on chain "${chainName}":`);
         console.log(`- nonce: ${transaction.nonce}`);
         if (transaction.to != null) {
           console.log(`- to: ${transaction.to}`);
@@ -102,7 +102,7 @@ export const executeChainActions = async (
   for (const chainName of chainActions.keys()) {
     const actions = chainActions.get(chainName)!;
     const clients = chainClients.get(chainName)!;
-    console.log(`- ${chainName} has ${actions.length} actions to execute [${clients.nonce}]`);
+    console.log(`- chain "${chainName}" has ${actions.length} actions to execute [${clients.nonce}]`);
   }
 
   if (config.dryRun) {
