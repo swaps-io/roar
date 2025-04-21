@@ -3,49 +3,15 @@ import { Address, encodeDeployData, encodeFunctionData, getCreateAddress, toFunc
 import { ChainClients, DeployStep, CallStep, Step, Deploy, Action, ArtifactRegistry } from './type';
 import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
 import { isContractAddress, } from './parse';
-import { jsonStringify, yamlDump } from './util';
-
-type ChainDeployerSpec = {
-  address: Address,
-  nonce: number,
-};
-
-type ChainContractSpec = {
-  address: Address,
-  name: string,
-  artifact: string,
-  source: string,
-  reference: string,
-  nonce: number,
-  index: number,
-};
-
-type ChainDeploySpec = {
-  id: number,
-  name: string,
-  deployer: ChainDeployerSpec,
-  contracts: Record<Address, ChainContractSpec>,
-};
-
-type DeploySpec = Record<string, ChainDeploySpec>;
+import { jsonStringify } from './util';
 
 const collectChainDeploys = (
   deploys: Map<string, Deploy>,
   chainName: string,
   steps: readonly Step[],
-  clients: ChainClients,
-  artifacts: ArtifactRegistry,
-): ChainDeploySpec => {
-  const spec: ChainDeploySpec = {
-    id: clients.public.chain.id,
-    name: clients.public.chain.name,
-    deployer: {
-      address: clients.wallet.account.address,
-      nonce: clients.nonce,
-    },
-    contracts: {},
-  };
-
+  from: Address,
+  nonce: number,
+): void => {
   const totalDeploys = steps.reduce((c, s) => s.type === 'deploy' ? c + 1 : c, 0);
   console.log(`Deploys on chain "${chainName}" (${totalDeploys}):`);
 
@@ -61,42 +27,22 @@ const collectChainDeploys = (
       throw new Error(`Deploy reference "${reference}" duplicate (#${index} vs #${existingDeploy.index})`);
     }
 
-    const description = `Chain "${chainName}" deploy of "${step.name}" action at #${index}`;
-    const artifact = resolveArtifact(step.name, step.artifact, artifacts, description);
-
-    const nonce = spec.deployer.nonce + index;
     const address = getCreateAddress({
-      from: spec.deployer.address,
-      nonce: BigInt(nonce),
+      from,
+      nonce: BigInt(nonce + index),
     });
     const deploy: Deploy = {
-      index,
+      index: index,
       address,
-      description,
-      artifact,
     };
     deploys.set(reference, deploy);
 
-    const contract: ChainContractSpec = {
-      address,
-      name: step.name,
-      reference,
-      artifact: artifact.path,
-      source: artifact.source,
-      nonce,
-      index,
-    };
-    spec.contracts[contract.address] = contract;
-
     console.log(`- deploy #${index}:`);
-    console.log(`  - nonce: ${contract.nonce}`);
-    console.log(`  - address: ${contract.address} 🔮`);
-    console.log(`  - name: ${contract.name}`);
-    console.log(`  - reference: ${contract.reference}`);
-    console.log(`  - artifact: ${contract.artifact}`);
+    console.log(`  - nonce: ${nonce + index}`);
+    console.log(`  - address: ${address} 🔮`);
+    console.log(`  - contract: ${step.name}`);
+    console.log(`  - reference: ${reference}`);
   }
-
-  return spec;
 };
 
 const resolveChainStepActions = (
@@ -108,14 +54,14 @@ const resolveChainStepActions = (
 ): Action[] => {
   const toDeployAction = (step: DeployStep, index: number): Action => {
     const reference = createReference(step.path);
-    const deploy = deploys.get(reference)!;
-
-    const abi = deploy.artifact.constructor == null ? [] : [deploy.artifact.constructor];
+    const description = `Chain "${chainName}" deploy of "${step.name}" action at #${index}`;
+    const artifact = resolveArtifact(step.name, step.artifact, artifacts, description);
+    const abi = artifact.constructor == null ? [] : [artifact.constructor];
     const inputs = abi.flatMap((a) => a.inputs);
-    const args = resolveArguments(step.args, inputs, deploys, deploy.description);
+    const args = resolveArguments(step.args, inputs, deploys, description);
 
     const data = encodeDeployData({
-      bytecode: deploy.artifact.bytecode,
+      bytecode: artifact.bytecode,
       abi,
       args,
     });
@@ -132,7 +78,7 @@ const resolveChainStepActions = (
     if (step.artifact) {
       console.log(`  - artifact: ${step.artifact}`);
     }
-    console.log(`  - address: ${deploy.address} 🔮`);
+    console.log(`  - address: ${deploys.get(reference)?.address} 🔮`);
     console.log(`  - arguments: ${jsonStringify(args)}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
@@ -211,16 +157,11 @@ export const resolveChainActions = (
 ): Map<string, Action[]> => {
   console.log();
   const deploys = new Map<string, Deploy>();
-  const deploySpec: DeploySpec = {};
   for (const [chainName, steps] of chainSteps) {
     const clients = chainClients.get(chainName)!;
-    const spec = collectChainDeploys(deploys, chainName, steps, clients, artifacts);
-    deploySpec[chainName] = spec;
+    const from = clients.wallet.account.address;
+    collectChainDeploys(deploys, chainName, steps, from, clients.nonce);
   }
-
-  console.log();
-  console.log('Deploy spec:');
-  console.log(yamlDump(deploySpec));
 
   console.log();
   const chainActions = new Map<string, Action[]>();

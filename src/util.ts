@@ -1,5 +1,3 @@
-import yaml from 'js-yaml';
-
 export const mapPop = <K, V>(map: Map<K, V>, key: K): V | undefined => {
   const item = map.get(key);
   map.delete(key);
@@ -16,8 +14,4 @@ const jsonReplacer = (key: string, value: any): any => {
 
 export const joinComma = (strings: readonly string[]): string => {
   return strings.join(', ');
-};
-
-export const yamlDump = (value: any): string => {
-  return yaml.dump(value, { lineWidth: -1 });
 };
