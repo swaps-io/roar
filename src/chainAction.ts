@@ -1,20 +1,16 @@
 import { Address, encodeDeployData, encodeFunctionData, getCreateAddress, toFunctionSelector, toFunctionSignature } from 'viem';
 
-import { ChainClients, DeployStep, CallStep, Step, Deploy, Action, ArtifactRegistry } from './type';
+import { ChainClients, DeployStep, CallStep, Step, Action, ArtifactRegistry } from './type';
 import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
 import { isContractAddress, } from './parse';
 import { jsonStringify } from './util';
 
-const collectChainDeploys = (
-  deploys: Map<string, Deploy>,
-  chainName: string,
+const resolveStepDeploys = (
   steps: readonly Step[],
   from: Address,
   nonce: number,
+  deploys: Map<string, string>,
 ): void => {
-  const totalDeploys = steps.reduce((c, s) => s.type === 'deploy' ? c + 1 : c, 0);
-  console.log(`Deploys on chain "${chainName}" (${totalDeploys}):`);
-
   for (let index = 0; index < steps.length; index++) {
     const step = steps[index];
     if (step.type !== 'deploy') {
@@ -22,33 +18,35 @@ const collectChainDeploys = (
     }
 
     const reference = createReference(step.path);
-    const existingDeploy = deploys.get(reference);
-    if (existingDeploy != null) {
-      throw new Error(`Deploy reference "${reference}" duplicate (#${index} vs #${existingDeploy.index})`);
+    if (deploys.has(reference)) {
+      throw new Error(`Deploy reference "${reference}" duplicate at #${index}`);
     }
 
     const address = getCreateAddress({
       from,
       nonce: BigInt(nonce + index),
     });
-    const deploy: Deploy = {
-      index: index,
-      address,
-    };
-    deploys.set(reference, deploy);
-
-    console.log(`- deploy #${index}:`);
-    console.log(`  - nonce: ${nonce + index}`);
-    console.log(`  - address: ${address} 🔮`);
-    console.log(`  - contract: ${step.name}`);
-    console.log(`  - reference: ${reference}`);
+    deploys.set(reference, address);
   }
 };
 
-const resolveChainStepActions = (
+const resolveDeploys = (
+  chainSteps: ReadonlyMap<string, readonly Step[]>,
+  chainClients: ReadonlyMap<string, ChainClients>,
+): Map<string, string> => {
+  const deploys = new Map<string, string>();
+  for (const [chainName, steps] of chainSteps) {
+    const clients = chainClients.get(chainName)!;
+    const from = clients.wallet.account.address;
+    resolveStepDeploys(steps, from, clients.nonce, deploys);
+  }
+  return deploys;
+};
+
+const resolveStepActions = (
   chainName: string,
   steps: readonly Step[],
-  deploys: ReadonlyMap<string, Deploy>,
+  deploys: ReadonlyMap<string, string>,
   nonce: number,
   artifacts: ArtifactRegistry,
 ): Action[] => {
@@ -78,7 +76,7 @@ const resolveChainStepActions = (
     if (step.artifact) {
       console.log(`  - artifact: ${step.artifact}`);
     }
-    console.log(`  - address: ${deploys.get(reference)?.address} 🔮`);
+    console.log(`  - address: ${deploys.get(reference)} 🔮`);
     console.log(`  - arguments: ${jsonStringify(args)}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
@@ -150,25 +148,28 @@ const resolveChainStepActions = (
   return actions;
 };
 
+const resolveActions = (
+  chainSteps: ReadonlyMap<string, readonly Step[]>,
+  chainClients: ReadonlyMap<string, ChainClients>,
+  artifacts: ArtifactRegistry,
+  deploys: ReadonlyMap<string, string>,
+): Map<string, Action[]> => {
+  console.log();
+  const chainActions = new Map<string, Action[]>();
+  for (const [chainName, steps] of chainSteps) {
+    const clients = chainClients.get(chainName)!;
+    const actions = resolveStepActions(chainName, steps, deploys, clients.nonce, artifacts);
+    chainActions.set(chainName, actions);
+  }
+  return chainActions;
+}
+
 export const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
   artifacts: ArtifactRegistry,
 ): Map<string, Action[]> => {
-  console.log();
-  const deploys = new Map<string, Deploy>();
-  for (const [chainName, steps] of chainSteps) {
-    const clients = chainClients.get(chainName)!;
-    const from = clients.wallet.account.address;
-    collectChainDeploys(deploys, chainName, steps, from, clients.nonce);
-  }
-
-  console.log();
-  const chainActions = new Map<string, Action[]>();
-  for (const [chainName, steps] of chainSteps) {
-    const clients = chainClients.get(chainName)!;
-    const actions = resolveChainStepActions(chainName, steps, deploys, clients.nonce, artifacts);
-    chainActions.set(chainName, actions);
-  }
+  const deploys = resolveDeploys(chainSteps, chainClients);
+  const chainActions = resolveActions(chainSteps, chainClients, artifacts, deploys);
   return chainActions;
 };

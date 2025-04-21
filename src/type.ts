@@ -82,11 +82,6 @@ export type CallStep = {
 
 export type Step = DeployStep | CallStep;
 
-export type Deploy = {
-  index: number,
-  address: string,
-};
-
 export type Action = {
   nonce: number;
   to: Hex | undefined;
