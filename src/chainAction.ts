@@ -53,6 +53,7 @@ const resolveChainStepActions = (
   artifacts: ArtifactRegistry,
 ): Action[] => {
   const toDeployAction = (step: DeployStep, index: number): Action => {
+    const reference = createReference(step.path);
     const description = `Chain "${chainName}" deploy of "${step.name}" action at #${index}`;
     const artifact = resolveArtifact(step.name, step.artifact, artifacts, description);
     const abi = artifact.constructor == null ? [] : [artifact.constructor];
@@ -73,10 +74,11 @@ const resolveChainStepActions = (
     };
 
     console.log(`  - name: ${step.name}`);
+    console.log(`  - reference: ${reference}`);
     if (step.artifact) {
       console.log(`  - artifact: ${step.artifact}`);
     }
-    console.log(`  - address: ${deploys.get(createReference(step.path))?.address} 🔮`);
+    console.log(`  - address: ${deploys.get(reference)?.address} 🔮`);
     console.log(`  - arguments: ${jsonStringify(args)}`);
     console.log(`  - nonce: ${action.nonce}`);
     console.log(`  - data: ${action.data}`);
