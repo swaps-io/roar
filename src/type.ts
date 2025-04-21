@@ -31,6 +31,7 @@ export type PlanContext = {
 };
 
 export type Artifact = {
+  path: string,
   name: string,
   source: string,
   bytecode: Hex,

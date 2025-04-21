@@ -77,6 +77,7 @@ const loadArtifact = async (path: string): Promise<Artifact | null> => {
   }
 
   const artifact: Artifact = {
+    path,
     name: content.contractName,
     source: content.sourceName,
     bytecode: content.bytecode,

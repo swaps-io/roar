@@ -71,18 +71,20 @@ const resolveStepActions = (
       value: step.value,
     };
 
-    console.log(`  - name: ${step.name}`);
-    console.log(`  - reference: ${reference}`);
-    if (step.artifact) {
-      console.log(`  - artifact: ${step.artifact}`);
-    }
-    console.log(`  - address: ${deploys.get(reference)} 🔮`);
-    console.log(`  - arguments: ${jsonStringify(args)}`);
-    console.log(`  - nonce: ${action.nonce}`);
-    console.log(`  - data: ${action.data}`);
+    console.log(`  - resolution:`);
+    console.log(`    - name: ${step.name}`);
+    console.log(`    - reference: ${reference}`);
+    console.log(`    - artifact: ${artifact.path}`);
+    console.log(`    - arguments: ${jsonStringify(args)}`);
+    console.log(`    - address: ${deploys.get(reference)} 🔮`);
+
+    console.log(`  - transaction:`);
+    console.log(`    - nonce: ${action.nonce}`);
     if (action.value != null) {
-      console.log(`  - value: ${action.value}`);
+      console.log(`    - value: ${action.value}`);
     }
+    console.log(`    - data: ${action.data}`);
+
     return action;
   };
 
@@ -91,7 +93,7 @@ const resolveStepActions = (
     const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`
     const target = resolveValue(step.target.address, deploys);
     if (!isContractAddress(target)) {
-      throw new Error(`${description} has invalid target address "${target}"`);
+      throw new Error(`${description} has invalid target contract address (${jsonStringify(target)})`);
     }
 
     const artifact = resolveArtifact(step.target.name, step.artifact, artifacts, description);
@@ -113,21 +115,20 @@ const resolveStepActions = (
       value: step.value,
     };
 
-    console.log(`  - name: ${fullName}`);
-    if (step.signature) {
-      console.log(`  - signature: ${step.signature}`);
-    }
-    if (step.artifact) {
-      console.log(`  - artifact: ${step.artifact}`);
-    }
-    console.log(`  - function: ${toFunctionSignature(abi[0])} [${toFunctionSelector(abi[0])}]`);
-    console.log(`  - arguments: ${jsonStringify(args)}`);
-    console.log(`  - nonce: ${action.nonce}`);
-    console.log(`  - to: ${action.to}`);
-    console.log(`  - data: ${action.data}`);
+    console.log(`  - resolution:`);
+    console.log(`    - name: ${fullName}`);
+    console.log(`    - artifact: ${artifact.path}`);
+    console.log(`    - function: ${toFunctionSignature(abi[0])} [${toFunctionSelector(abi[0])}]`);
+    console.log(`    - arguments: ${jsonStringify(args)}`);
+
+    console.log(`  - transaction:`);
+    console.log(`    - nonce: ${action.nonce}`);
+    console.log(`    - to: ${action.to}`);
     if (action.value != null) {
-      console.log(`  - value: ${action.value}`);
+      console.log(`    - value: ${action.value}`);
     }
+    console.log(`    - data: ${action.data}`);
+
     return action;
   };
 

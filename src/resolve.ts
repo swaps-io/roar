@@ -1,6 +1,6 @@
 import { AbiFunction, AbiParameter } from 'abitype';
 
-import { Artifact, ArtifactRegistry, Deploy, DeployValue, ViemValue, Value } from './type';
+import { Artifact, ArtifactRegistry, DeployValue, ViemValue, Value } from './type';
 import {
   CALL_ARTIFACT,
   CALL_FORCE_SUFFIX,
@@ -172,13 +172,13 @@ export const resolveFunction = (
 
 export const resolveValue = (
   value: Value,
-  deploys: ReadonlyMap<string, Deploy>,
+  deploys: ReadonlyMap<string, string>,
 ): ViemValue => {
   if (value instanceof DeployValue) {
     const reference = createReference(value.path);
     const deploy = deploys.get(reference);
     if (deploy != null) {
-      return deploy.address;
+      return deploy;
     }
     throw new Error(`Failed to resolve deploy contract reference "${reference}"`);
   }
@@ -201,7 +201,7 @@ export const resolveValue = (
 export const resolveArguments = (
   args: ReadonlyMap<string, Value>,
   inputs: readonly AbiParameter[],
-  deploys: ReadonlyMap<string, Deploy>,
+  deploys: ReadonlyMap<string, string>,
   description: string,
 ): ViemValue[] => {
   if (args.size > inputs.length) {
