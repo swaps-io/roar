@@ -38,8 +38,21 @@ export const evaluateNode = (
   node: PlanNode,
   path: readonly string[],
 ): Value => {
-  if (node == null) {
+  const value = evaluateNodeNull(ctx, node, path);
+  if (value == null) {
     throw new Error(`Unexpected null value at "${createReference(path)}"`);
+  }
+
+  return value;
+}
+
+const evaluateNodeNull = (
+  ctx: PlanContext,
+  node: PlanNode,
+  path: readonly string[],
+): Value | null => {
+  if (node == null) {
+    return null;
   }
 
   if (typeof node === 'string') {
@@ -59,13 +72,17 @@ export const evaluateNode = (
 
   if (Array.isArray(node)) {
     return node.map(
-      (subnode, index) => evaluateNode(ctx, subnode, [...path, `${index}`]),
+      (subnode, index) => evaluateNodeNull(ctx, subnode, [...path, `${index}`]),
+    ).filter(
+      (value) => value != null,
     );
   }
 
   return Object.fromEntries(
     Object.entries(node).map(
-      ([name, subnode]) => [name, evaluateNode(ctx, subnode, [...path, name])],
+      ([name, subnode]) => [name, evaluateNodeNull(ctx, subnode, [...path, name])],
+    ).filter(
+      ([name, value]) => value != null,
     ),
   );
 };
