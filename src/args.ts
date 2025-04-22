@@ -1,6 +1,12 @@
 
-import { DEFAULT_PLAN_PATH, DEFAULT_CONFIG_PATH, DEFAULT_ARTIFACTS_PATH, DEFAULT_LOCKS_PATH } from './constant';
 import { Args } from './type';
+import {
+  DEFAULT_PLAN_PATH,
+  DEFAULT_CONFIG_PATH,
+  DEFAULT_ARTIFACTS_PATH,
+  DEFAULT_LOCKS_PATH,
+  DEFAULT_SPEC_PATH,
+} from './constant';
 
 export const parseArgs = (): Args => {
   console.log();
@@ -22,6 +28,7 @@ export const parseArgs = (): Args => {
     planPath: DEFAULT_PLAN_PATH,
     artifactsPath: DEFAULT_ARTIFACTS_PATH,
     locksPath: DEFAULT_LOCKS_PATH,
+    specPath: DEFAULT_SPEC_PATH,
   };
 
   const getArgValue = (index: number): string => {
@@ -51,6 +58,11 @@ export const parseArgs = (): Args => {
         args.locksPath = getArgValue(index + 1);
         return;
 
+      case '--spec':
+      case '-s':
+        args.specPath = getArgValue(index + 1);
+        return;
+
       default:
         usage();
     }
@@ -65,5 +77,6 @@ export const parseArgs = (): Args => {
   console.log(`- config path: ${args.configPath}`);
   console.log(`- artifacts path: ${args.artifactsPath}`);
   console.log(`- locks path: ${args.locksPath}`);
+  console.log(`- spec path: ${args.specPath || 'none ❎'}`);
   return args;
 };

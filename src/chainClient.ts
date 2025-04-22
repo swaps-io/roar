@@ -75,8 +75,9 @@ export const resolveChainClients = async (
     const chain = CHAINS.get(chainName)!;
     console.log(`- ${chainName}:`);
     console.log(`  - id: ${chain.id}`);
+    console.log(`  - name: ${chain.name}`);
     console.log(`  - nonce: ${clients.nonce}`);
-    console.log(`  - rpc: ${joinComma(chain.rpcUrls.default.http)}`);
+    console.log(`  - rpcs: ${joinComma(chain.rpcUrls.default.http)}`);
   }
   return chainClients;
 };

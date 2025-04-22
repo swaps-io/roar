@@ -2,6 +2,7 @@ export const DEFAULT_PLAN_PATH = 'plan.yaml';
 export const DEFAULT_CONFIG_PATH = 'config.yaml';
 export const DEFAULT_ARTIFACTS_PATH = 'artifacts';
 export const DEFAULT_LOCKS_PATH = 'locks';
+export const DEFAULT_SPEC_PATH = '';
 
 export const CALL_PREFIX = '$';
 export const CALL_TARGET = '$';

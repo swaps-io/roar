@@ -8,6 +8,7 @@ import { resolveChainSteps } from './chainStep';
 import { resolveChainActions } from './chainAction';
 import { executeChainActions } from './execute';
 import { createDeployer } from './deployer';
+import { generatePlanSpec, savePlanSpec } from './spec';
 
 const main = async (): Promise<void> => {
   const args = parseArgs();
@@ -20,6 +21,11 @@ const main = async (): Promise<void> => {
   const chainClients = await resolveChainClients(deployer, chainPlans, args.locksPath, args.planPath);
   const chainSteps = resolveChainSteps(plan, chainPlans);
   const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
+
+  if (args.specPath) {
+    const spec = generatePlanSpec(args, deployer, chainClients, chainActions);
+    await savePlanSpec(args.specPath, spec);
+  }
 
   await executeChainActions(chainActions, chainClients, config.execution);
 };

@@ -10,13 +10,10 @@ import {
   ActionTransaction,
   CallActionResolution,
   DeployActionResolution,
-  ActionsSpec,
-  ChainActionsSpec,
-  ChainActionSpec,
 } from './type';
 import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
 import { isContractAddress, } from './parse';
-import { jsonStringify, yamlDump } from './util';
+import { jsonStringify } from './util';
 
 const resolveStepDeploys = (
   steps: readonly Step[],
@@ -200,47 +197,6 @@ const resolveActions = (
   return chainActions;
 }
 
-const generateActionsSpec = (
-  chainClients: ReadonlyMap<string, ChainClients>,
-  chainActions: ReadonlyMap<string, Action[]>,
-): ActionsSpec => {
-  const spec: ActionsSpec = {};
-  for (const [chainName, actions] of chainActions) {
-    const clients = chainClients.get(chainName)!;
-
-    const actionSpecs: ChainActionSpec[] = [];
-    for (const action of actions) {
-      const actionSpec: ChainActionSpec = {
-        ...action.resolution,
-        nonce: action.transaction.nonce,
-      };
-      actionSpecs.push(actionSpec);
-    }
-
-    const chainSpec: ChainActionsSpec = {
-      id: clients.public.chain.id,
-      name: clients.public.chain.name,
-      deployer: {
-        address: clients.wallet.account.address,
-        nonce: clients.nonce,
-      },
-      actions: actionSpecs,
-    };
-    spec[chainName] = chainSpec;
-  }
-  return spec;
-};
-
-const showActionsSpec = (
-  chainClients: ReadonlyMap<string, ChainClients>,
-  chainActions: ReadonlyMap<string, Action[]>,
-): void => {
-  const spec = generateActionsSpec(chainClients, chainActions);
-  console.log();
-  console.log('Actions specification:');
-  console.log(yamlDump(spec).trimEnd());
-};
-
 export const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
@@ -248,6 +204,5 @@ export const resolveChainActions = (
 ): Map<string, Action[]> => {
   const deploys = resolveDeploys(chainSteps, chainClients);
   const chainActions = resolveActions(chainSteps, chainClients, artifacts, deploys);
-  showActionsSpec(chainClients, chainActions);
   return chainActions;
 };

@@ -6,6 +6,7 @@ export type Args = {
   configPath: string,
   artifactsPath: string,
   locksPath: string,
+  specPath: string,
 };
 
 export type ConfigDeployer = {
@@ -115,21 +116,41 @@ export type Action = {
   transaction: ActionTransaction,
 };
 
-export type ChainActionSpec = ActionResolution & Pick<ActionTransaction, 'nonce'>;
+export type ArgsSpec = {
+  plan: string,
+  config: string,
+  artifacts: string,
+  locks: string,
+  spec: string,
+};
 
-export type ChainDeployerSpec = {
+export type DeployerSpec = {
+  address: string,
+};
+
+export type ChainSpec = {
+  id: number,
+  key: string,
+  name: string,
+  rpcs: readonly string[],
+};
+
+export interface ChainDeployerSpec {
   address: string,
   nonce: number,
 };
 
 export type ChainActionsSpec = {
-  id: number,
-  name: string,
+  chain: ChainSpec,
   deployer: ChainDeployerSpec,
-  actions: ChainActionSpec[],
+  actions: Action[],
 };
 
-export type ActionsSpec = Record<string, ChainActionsSpec>;
+export type PlanSpec = {
+  args: ArgsSpec,
+  deployer: DeployerSpec,
+  chains: Record<string, ChainActionsSpec>,
+};
 
 export type Lock = {
   nonces: Record<string, number>,

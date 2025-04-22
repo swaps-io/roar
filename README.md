@@ -31,6 +31,7 @@ The `roar` tool allows to override defaults with the following command line argu
 - `--artifacts <artifacts-path>` (`-a <artifacts-path>`) - path to [artifacts](#artifacts) folder (default: `artifacts`)
   _[r]_
 - `--locks <locks-path>` (`-l <locks-path>`) - path to locks folder (default: `locks`) _[rw]_
+- `--spec <spec-path>` (`-s <spec-path>`) - path to spec output file (default: none) _[w]_
 
 _Example:_ `bun rr --plan some/custom/folder/plan.yaml -l .hidden/locks`.
 
