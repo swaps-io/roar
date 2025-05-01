@@ -1,5 +1,5 @@
-import { CallTarget, DeployValue, Value } from './type';
-import { isContract, isContractAddress } from './parse';
+import { CallTarget, DeployValue, TransferTarget, Value } from './type';
+import { isContract, isAddress } from './parse';
 import { createReference } from './resolve';
 
 export const asArgsSpecial = (
@@ -18,40 +18,76 @@ export const asArgsSpecial = (
   return args;
 };
 
-export const asTargetSpecial = (
+const asTargetAddress = (
   value: Value | undefined,
   path: readonly string[],
-  getSubpath: () => string[] | null,
-): CallTarget => {
+): string | DeployValue => {
   if (value == null) {
     throw new Error(`Invalid call target evaluated at "${createReference(path)}": non-empty expected`);
   }
 
   if (
-    !isContractAddress(value) &&
+    !isAddress(value) &&
     !(value instanceof DeployValue)
   ) {
-    throw new Error(`Invalid call target evaluated at "${createReference(path)}": contract address or reference expected`);
+    throw new Error(
+      `Invalid call target evaluated at "${createReference(path)}": ` +
+      'contract address or reference expected'
+    );
   }
 
-  let name: string;
+  return value;
+};
+
+const asTargetName = (
+  value: Value | undefined,
+  path: readonly string[],
+  getSubpath: () => readonly string[] | null,
+): string => {
   if (value instanceof DeployValue) {
-    name = value.path[value.path.length - 1];
-  } else {
-    const subpath = getSubpath();
-    if (subpath == null) {
-      throw new Error(`Invalid call target evaluated at "${createReference(path)}": non-empty reference expected`);
-    }
-
-    name = subpath[subpath.length - 1];
-    if (!isContract(name)) {
-      throw new Error(`Invalid call target evaluated at "${createReference(path)}": reference must end in contract name, which "${name}" is not`);
-    }
+    const name = value.path[value.path.length - 1];
+    return name;
   }
+
+  const subpath = getSubpath();
+  if (subpath == null) {
+    throw new Error(`Invalid call target evaluated at "${createReference(path)}": non-empty reference expected`);
+  }
+
+  const name = subpath[subpath.length - 1];
+  if (!isContract(name)) {
+    throw new Error(
+      `Invalid call target evaluated at "${createReference(path)}": ` +
+      `reference must end in contract name, which "${name}" is not`
+    );
+  }
+
+  return name;
+}
+
+export const asTransferTargetSpecial = (
+  value: Value | undefined,
+  path: readonly string[],
+): TransferTarget => {
+  const address = asTargetAddress(value, path);
+
+  const target: TransferTarget = {
+    address,
+  };
+  return target;
+}
+
+export const asCallTargetSpecial = (
+  value: Value | undefined,
+  path: readonly string[],
+  getSubpath: () => readonly string[] | null,
+): CallTarget => {
+  const address = asTargetAddress(value, path);
+  const name = asTargetName(value, path, getSubpath);
 
   const target: CallTarget = {
     name,
-    address: value,
+    address,
   };
   return target;
 };

@@ -1,6 +1,6 @@
-import { Hex, isHex } from 'viem';
+import { Address, isAddress as isAddressViem } from 'viem';
 
-import { CALL_PREFIX, CALL_IGNORES, CALL_FORCE_SUFFIX, REFERENCE_PREFIX } from './constant';
+import { CALL_PREFIX, CALL_IGNORES, CALL_TRANSFER, REFERENCE_PREFIX } from './constant';
 
 const isUpperCase = (value: string): boolean => {
   return ( // 2 checks to handle digits etc
@@ -14,8 +14,8 @@ export const isContract = (name: string): boolean => {
   return isUpperCase(start);
 };
 
-export const isContractAddress = (value: unknown): value is Hex => {
-  return isHex(value);
+export const isAddress = (value: unknown): value is Address => {
+  return typeof value === 'string' && isAddressViem(value);
 };
 
 export const isCall = (name: string): boolean => {
@@ -23,15 +23,15 @@ export const isCall = (name: string): boolean => {
     return false;
   }
 
-  if (!CALL_IGNORES.has(name)) {
-    return true;
+  if (CALL_IGNORES.has(name)) {
+    return false;
   }
 
-  if (name.endsWith(CALL_FORCE_SUFFIX) && name !== CALL_FORCE_SUFFIX) {
-    return true;
-  }
+  return true;
+};
 
-  return false;
+export const isTransfer = (name: string): boolean => {
+  return name === CALL_TRANSFER;
 };
 
 export const isReference = (name: string): boolean => {

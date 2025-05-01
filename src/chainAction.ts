@@ -10,9 +10,11 @@ import {
   ActionTransaction,
   CallActionResolution,
   DeployActionResolution,
+  TransferStep,
+  TransferActionResolution,
 } from './type';
 import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
-import { isContractAddress, } from './parse';
+import { isAddress } from './parse';
 import { jsonStringify } from './util';
 
 const resolveStepDeploys = (
@@ -53,6 +55,37 @@ const resolveDeploys = (
   return deploys;
 };
 
+const logDeployResolution = (resolution: DeployActionResolution): void => {
+  console.log(`  - resolution:`);
+  console.log(`    - name: ${resolution.name}`);
+  console.log(`    - reference: ${resolution.reference}`);
+  console.log(`    - artifact: ${resolution.artifact}`);
+  console.log(`    - arguments: ${resolution.arguments}`);
+  console.log(`    - address: ${resolution.address} 🔮`);
+};
+
+const logCallResolution = (resolution: CallActionResolution): void => {
+  console.log(`  - resolution:`);
+  console.log(`    - name: ${resolution.name}`);
+  console.log(`    - artifact: ${resolution.artifact}`);
+  console.log(`    - function: ${resolution.function} [${resolution.selector}]`);
+  console.log(`    - arguments: ${resolution.arguments}`);
+};
+
+const logTransaction = (transaction: ActionTransaction): void => {
+  console.log(`  - transaction:`);
+  console.log(`    - nonce: ${transaction.nonce}`);
+  if (transaction.to != null) {
+    console.log(`    - to: ${transaction.to}`);
+  }
+  if (transaction.value != null) {
+    console.log(`    - value: ${transaction.value}`);
+  }
+  if (transaction.data != null) {
+    console.log(`    - data: ${transaction.data}`);
+  }
+};
+
 const resolveStepActions = (
   chainName: string,
   steps: readonly Step[],
@@ -82,12 +115,7 @@ const resolveStepActions = (
       arguments: jsonStringify(args),
       address: deploys.get(reference)!,
     };
-    console.log(`  - resolution:`);
-    console.log(`    - name: ${resolution.name}`);
-    console.log(`    - reference: ${resolution.reference}`);
-    console.log(`    - artifact: ${resolution.artifact}`);
-    console.log(`    - arguments: ${resolution.arguments}`);
-    console.log(`    - address: ${resolution.address} 🔮`);
+    logDeployResolution(resolution);
 
     const transaction: ActionTransaction = {
       nonce: nonce + index,
@@ -95,12 +123,7 @@ const resolveStepActions = (
       data,
       value: step.value,
     };
-    console.log(`  - transaction:`);
-    console.log(`    - nonce: ${transaction.nonce}`);
-    if (transaction.value != null) {
-      console.log(`    - value: ${transaction.value}`);
-    }
-    console.log(`    - data: ${transaction.data}`);
+    logTransaction(transaction);
 
     const action: Action = {
       resolution,
@@ -113,7 +136,7 @@ const resolveStepActions = (
     const fullName = `${step.target.name}.${step.name}`;
     const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`
     const target = resolveValue(step.target.address, deploys);
-    if (!isContractAddress(target)) {
+    if (!isAddress(target)) {
       throw new Error(`${description} has invalid target contract address (${jsonStringify(target)})`);
     }
 
@@ -136,12 +159,8 @@ const resolveStepActions = (
       function: toFunctionSignature(abi[0]),
       selector: toFunctionSelector(abi[0]),
       arguments: jsonStringify(args),
-    }
-    console.log(`  - resolution:`);
-    console.log(`    - name: ${resolution.name}`);
-    console.log(`    - artifact: ${resolution.artifact}`);
-    console.log(`    - function: ${resolution.function} [${resolution.selector}]`);
-    console.log(`    - arguments: ${resolution.arguments}`);
+    };
+    logCallResolution(resolution);
 
     const transaction: ActionTransaction = {
       nonce: nonce + index,
@@ -149,13 +168,33 @@ const resolveStepActions = (
       data,
       value: step.value,
     };
-    console.log(`  - transaction:`);
-    console.log(`    - nonce: ${transaction.nonce}`);
-    console.log(`    - to: ${transaction.to}`);
-    if (transaction.value != null) {
-      console.log(`    - value: ${transaction.value}`);
+    logTransaction(transaction);
+
+    const action: Action = {
+      resolution,
+      transaction,
+    };
+    return action;
+  };
+
+  const toTransferAction = (step: TransferStep, index: number): Action => {
+    const description = `Chain "${chainName}" transfer action at #${index}`
+    const target = resolveValue(step.target.address, deploys);
+    if (!isAddress(target)) {
+      throw new Error(`${description} has invalid target address (${jsonStringify(target)})`);
     }
-    console.log(`    - data: ${transaction.data}`);
+
+    const resolution: TransferActionResolution = {
+      type: 'transfer',
+    };
+
+    const transaction: ActionTransaction = {
+      nonce: nonce + index,
+      to: target,
+      data: undefined,
+      value: step.value,
+    };
+    logTransaction(transaction);
 
     const action: Action = {
       resolution,
@@ -171,6 +210,8 @@ const resolveStepActions = (
         return toDeployAction(step, index);
       case 'call':
         return toCallAction(step, index);
+      case 'transfer':
+        return toTransferAction(step, index);
       default:
         return step satisfies never;
     }

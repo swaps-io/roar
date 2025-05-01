@@ -25,7 +25,9 @@ const executeSingleChainAction = async (
         if (transaction.to != null) {
           console.log(`- to: ${transaction.to}`);
         }
-        console.log(`- data: ${transaction.data}`);
+        if (transaction.data != null) {
+          console.log(`- data: ${transaction.data}`);
+        }
         if (transaction.value != null) {
           console.log(`- value: ${transaction.value}`);
         }
@@ -117,4 +119,7 @@ export const executeChainActions = async (
     await executeSingleChainActions(chainName, actions, clients, config);
   });
   await Promise.all(chainExecutions);
+
+  console.log();
+  console.log(`All actions for ${chainActions.size} chains have been executed 🏁`);
 };

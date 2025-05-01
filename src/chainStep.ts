@@ -1,7 +1,7 @@
 import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, CALL_ARTIFACT } from './constant';
-import { PlanNode, Plan, DeployStep, CallStep, Step, PlanContext } from './type';
-import { isCall, isContract, isContractAddress, isReference } from './parse';
-import { asArgsSpecial, asArtifactSpecial, asSignatureSpecial, asTargetSpecial, asValueSpecial } from './special';
+import { PlanNode, Plan, DeployStep, CallStep, Step, PlanContext, TransferStep } from './type';
+import { isCall, isContract, isAddress, isReference, isTransfer } from './parse';
+import { asArgsSpecial, asArtifactSpecial, asSignatureSpecial, asCallTargetSpecial, asTransferTargetSpecial, asValueSpecial } from './special';
 import { resolveCall, resolveReference } from './resolve';
 import { evaluateNode } from './evaluate';
 import { mapPop } from './util';
@@ -19,7 +19,7 @@ const resolveChainPlanSteps = (
   const steps: Step[] = [];
 
   const visitContract = (name: string, node: PlanNode, path: readonly string[]): void => {
-    if (isContractAddress(node)) {
+    if (isAddress(node)) {
       return;
     }
 
@@ -53,7 +53,7 @@ const resolveChainPlanSteps = (
     };
 
     const args = asArgsSpecial(evaluateNode(ctx, node, path), path);
-    const target = asTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET], getTargetSubpath);
+    const target = asCallTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET], getTargetSubpath);
     const value = asValueSpecial(mapPop(args, CALL_VALUE), [...path, CALL_VALUE]);
     const signature = asSignatureSpecial(mapPop(args, CALL_SIGNATURE), [...path, CALL_SIGNATURE]);
     const artifact = asArtifactSpecial(mapPop(args, CALL_ARTIFACT), [...path, CALL_ARTIFACT]);
@@ -70,6 +70,19 @@ const resolveChainPlanSteps = (
     steps.push(step);
   };
 
+  const visitTransfer = (node: PlanNode, path: readonly string[]): void => {
+    const args = asArgsSpecial(evaluateNode(ctx, node, path), path);
+    const target = asTransferTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET]);
+    const value = asValueSpecial(mapPop(args, CALL_VALUE), [...path, CALL_VALUE]);
+
+    const step: TransferStep = {
+      type: 'transfer',
+      target,
+      value,
+    };
+    steps.push(step);
+  }
+
   const visit = (node: PlanNode, path: readonly string[]): void => {
     if (node == null || typeof node !== 'object') {
       return;
@@ -85,6 +98,11 @@ const resolveChainPlanSteps = (
 
       if (isCall(name)) {
         visitCall(resolveCall(name), subnode, subpath);
+        continue;
+      }
+
+      if (isTransfer(name)) {
+        visitTransfer(subnode, subpath);
         continue;
       }
 

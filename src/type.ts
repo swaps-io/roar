@@ -63,6 +63,10 @@ export type CallTarget = {
   address: string | DeployValue,
 };
 
+export type TransferTarget = {
+  address: string | DeployValue,
+};
+
 export type DeployStep = {
   type: 'deploy',
   name: string,
@@ -80,9 +84,15 @@ export type CallStep = {
   value: bigint | undefined,
   signature: string | undefined,
   artifact: string | undefined,
-}
+};
 
-export type Step = DeployStep | CallStep;
+export type TransferStep = {
+  type: 'transfer',
+  target: TransferTarget,
+  value: bigint | undefined,
+};
+
+export type Step = DeployStep | CallStep | TransferStep;
 
 export type DeployActionResolution = {
   type: 'deploy',
@@ -102,12 +112,16 @@ export type CallActionResolution = {
   arguments: string,
 };
 
-export type ActionResolution = DeployActionResolution | CallActionResolution;
+export type TransferActionResolution = {
+  type: 'transfer',
+};
+
+export type ActionResolution = DeployActionResolution | CallActionResolution | TransferActionResolution;
 
 export type ActionTransaction = {
   nonce: number,
   to: Hex | undefined,
-  data: Hex,
+  data: Hex | undefined,
   value: bigint | undefined,
 };
 
