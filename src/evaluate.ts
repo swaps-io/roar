@@ -1,5 +1,5 @@
 import { DeployValue, PlanContext, PlanNode, Value } from './type';
-import { isContract, isContractAddress, isReference } from './parse';
+import { isContract, isAddress, isReference } from './parse';
 import { createReference, resolveReference } from './resolve';
 import { REFERENCE_PREFIX } from './constant';
 
@@ -23,7 +23,7 @@ const evaluateReference = (
 
   const name = path[path.length - 1];
   if (isContract(name)) {
-    if (isContractAddress(node)) {
+    if (isAddress(node)) {
       return node;
     }
 

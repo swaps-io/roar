@@ -224,6 +224,15 @@ bob:
     $sig: address,uint256,bytes
 ```
 
+#### _Native value transfer without call_
+
+```yaml
+sonic:
+  $$:  # Special `$$` key indicating native value transfer to target address
+    $: '0x4242424242424242424242424242424242424242'
+    $val: 133713371337
+```
+
 #### _Contract call of function matching reserved name_
 
 ```yaml
