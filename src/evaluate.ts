@@ -12,7 +12,9 @@ const evaluateReference = (ctx: PlanContext, reference: string): Value => {
       throw new Error(`Failed to resolve "${nodeName}" node of "${reference}" reference`);
     }
 
-    node = Array.isArray(node) ? node[Number(name)] : node[name];
+    node = Array.isArray(node)
+      ? node[Number(name)]
+      : node[name]; // prettier-ignore
     nodeName = name;
   }
 
