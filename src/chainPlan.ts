@@ -1,5 +1,5 @@
-import { Plan } from './type';
 import { CHAINS } from './chains';
+import { Plan } from './type';
 import { joinComma } from './util';
 
 export const extractChainPlans = (plan: Plan): Map<string, Plan> => {

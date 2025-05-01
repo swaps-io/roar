@@ -11,13 +11,7 @@ export const CALL_VALUE = '$val';
 export const CALL_ARTIFACT = '$art';
 export const CALL_FORCE_SUFFIX = '$';
 export const CALL_TRANSFER = CALL_PREFIX + CALL_FORCE_SUFFIX;
-export const CALL_IGNORES = new Set([
-  CALL_TARGET,
-  CALL_SIGNATURE,
-  CALL_VALUE,
-  CALL_ARTIFACT,
-  CALL_TRANSFER,
-]);
+export const CALL_IGNORES = new Set([CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, CALL_ARTIFACT, CALL_TRANSFER]);
 
 export const REFERENCE_PREFIX = '$';
 export const REFERENCE_SEPARATOR = '.';

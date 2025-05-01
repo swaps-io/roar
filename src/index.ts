@@ -1,13 +1,13 @@
 import { parseArgs } from './args';
-import { loadConfig } from './config';
-import { loadPlan } from './plan';
 import { loadArtifacts } from './artifact';
-import { extractChainPlans } from './chainPlan';
-import { resolveChainClients } from './chainClient';
-import { resolveChainSteps } from './chainStep';
 import { resolveChainActions } from './chainAction';
-import { executeChainActions } from './execute';
+import { resolveChainClients } from './chainClient';
+import { extractChainPlans } from './chainPlan';
+import { resolveChainSteps } from './chainStep';
+import { loadConfig } from './config';
 import { createDeployer } from './deployer';
+import { executeChainActions } from './execute';
+import { loadPlan } from './plan';
 import { generatePlanSpec, savePlanSpec } from './spec';
 
 const main = async (): Promise<void> => {

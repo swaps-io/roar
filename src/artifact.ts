@@ -1,8 +1,8 @@
-import { isHex, toFunctionSignature } from 'viem';
 import { AbiConstructor, AbiFunction } from 'abitype';
+import { isHex, toFunctionSignature } from 'viem';
 
+import { discoverDirectoryEntries, joinPath, loadJson } from './file';
 import { Artifact, ArtifactRegistry } from './type';
-import { loadJson, joinPath, discoverDirectoryEntries } from './file';
 
 const discoverArtifactPaths = async (path: string): Promise<string[]> => {
   const entries = await discoverDirectoryEntries(path);
@@ -32,7 +32,11 @@ const loadArtifact = async (path: string): Promise<Artifact | null> => {
     throw new Error(`Artifact at "${path}" has unexpected "sourceName" value type (string expected)`);
   }
 
-  if (content.linkReferences == null || typeof content.linkReferences !== 'object' || Array.isArray(content.linkReferences)) {
+  if (
+    content.linkReferences == null ||
+    typeof content.linkReferences !== 'object' ||
+    Array.isArray(content.linkReferences)
+  ) {
     throw new Error(`Artifact at "${path}" has unexpected "linkReferences" value type (object expected)`);
   }
 
@@ -86,28 +90,30 @@ const loadArtifact = async (path: string): Promise<Artifact | null> => {
     resolutions,
   };
   return artifact;
-}
+};
 
 export const loadArtifacts = async (path: string): Promise<ArtifactRegistry> => {
   const artifactPaths = await discoverArtifactPaths(path);
 
   const artifacts = new Map<string, Artifact>();
   const resolutions = new Map<string, Set<string>>();
-  await Promise.all(artifactPaths.map(async (path) => {
-    const artifact = await loadArtifact(path);
-    if (artifact == null) {
-      return;
-    }
+  await Promise.all(
+    artifactPaths.map(async (path) => {
+      const artifact = await loadArtifact(path);
+      if (artifact == null) {
+        return;
+      }
 
-    artifacts.set(path, artifact);
+      artifacts.set(path, artifact);
 
-    const paths = resolutions.get(artifact.name);
-    if (paths == null) {
-      resolutions.set(artifact.name, new Set([path]));
-    } else {
-      paths.add(path);
-    }
-  }));
+      const paths = resolutions.get(artifact.name);
+      if (paths == null) {
+        resolutions.set(artifact.name, new Set([path]));
+      } else {
+        paths.add(path);
+      }
+    }),
+  );
 
   const registry: ArtifactRegistry = {
     artifacts,

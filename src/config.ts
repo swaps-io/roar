@@ -1,9 +1,9 @@
 import { isHex, size } from 'viem';
 
-import { DEFAULT_DRY_RUN, DEFAULT_RETRY_DELAY, DEFAULT_NONCE_BEHIND_RETRIES } from './constant';
-import { Config } from './type';
-import { loadYaml } from './file';
+import { DEFAULT_DRY_RUN, DEFAULT_NONCE_BEHIND_RETRIES, DEFAULT_RETRY_DELAY } from './constant';
 import { getDeployerAddress } from './deployer';
+import { loadYaml } from './file';
+import { Config } from './type';
 
 export const loadConfig = async (path: string): Promise<Config> => {
   const config = await loadYaml(path);
@@ -21,7 +21,9 @@ export const loadConfig = async (path: string): Promise<Config> => {
   const keySize = size(config.deployer.privateKey);
   const expectedKeySize = 32;
   if (keySize !== expectedKeySize) {
-    throw new Error(`Invalid byte size of config "privateKey" field of "deployer" (${expectedKeySize} expected, got ${keySize})`);
+    throw new Error(
+      `Invalid byte size of config "privateKey" field of "deployer" (${expectedKeySize} expected, got ${keySize})`,
+    );
   }
 
   if (config.execution == null) {

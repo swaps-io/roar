@@ -1,16 +1,19 @@
-import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, CALL_ARTIFACT } from './constant';
-import { PlanNode, Plan, DeployStep, CallStep, Step, PlanContext, TransferStep } from './type';
-import { isCall, isContract, isAddress, isReference, isTransfer } from './parse';
-import { asArgsSpecial, asArtifactSpecial, asSignatureSpecial, asCallTargetSpecial, asTransferTargetSpecial, asValueSpecial } from './special';
-import { createReference, resolveCall, resolveReference } from './resolve';
+import { CALL_ARTIFACT, CALL_SIGNATURE, CALL_TARGET, CALL_VALUE } from './constant';
 import { evaluateNode } from './evaluate';
+import { isAddress, isCall, isContract, isReference, isTransfer } from './parse';
+import { createReference, resolveCall, resolveReference } from './resolve';
+import {
+  asArgsSpecial,
+  asArtifactSpecial,
+  asCallTargetSpecial,
+  asSignatureSpecial,
+  asTransferTargetSpecial,
+  asValueSpecial,
+} from './special';
+import { CallStep, DeployStep, Plan, PlanContext, PlanNode, Step, TransferStep } from './type';
 import { mapPop } from './util';
 
-const resolveChainPlanSteps = (
-  chainName: string,
-  chainPlan: Plan,
-  plan: Plan,
-): Step[] => {
+const resolveChainPlanSteps = (chainName: string, chainPlan: Plan, plan: Plan): Step[] => {
   const ctx: PlanContext = {
     plan,
     chainName,
@@ -78,7 +81,7 @@ const resolveChainPlanSteps = (
     if (args.size > 0) {
       throw new Error(
         `Unused arguments detected at "${createReference(path)}": ` +
-        `transfer only accepts target and value, but ${args.size} extra arguments provided`
+          `transfer only accepts target and value, but ${args.size} extra arguments provided`,
       );
     }
 
@@ -88,7 +91,7 @@ const resolveChainPlanSteps = (
       value,
     };
     steps.push(step);
-  }
+  };
 
   const visit = (node: PlanNode, path: readonly string[]): void => {
     if (node == null || typeof node !== 'object') {
@@ -122,10 +125,7 @@ const resolveChainPlanSteps = (
   return steps;
 };
 
-export const resolveChainSteps = (
-  plan: Plan,
-  chainPlans: ReadonlyMap<string, Plan>,
-): Map<string, Step[]> => {
+export const resolveChainSteps = (plan: Plan, chainPlans: ReadonlyMap<string, Plan>): Map<string, Step[]> => {
   const chainSteps = new Map<string, Step[]>();
   for (const [chainName, chainPlan] of chainPlans) {
     const steps = resolveChainPlanSteps(chainName, chainPlan, plan);

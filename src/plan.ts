@@ -1,7 +1,7 @@
 import { Address, isAddressEqual, isHex } from 'viem';
 
-import { Plan } from './type';
 import { loadYaml } from './file';
+import { Plan } from './type';
 
 export const loadPlan = async (path: string, deployer: Address): Promise<Plan> => {
   const plan = await loadYaml(path);
@@ -16,7 +16,10 @@ export const loadPlan = async (path: string, deployer: Address): Promise<Plan> =
 
   console.log();
   console.log('Plan:');
-  console.log(`- deployer: ${deployerMatch == null ? 'no specific one expected 👻' : `${plan.deployer} ${deployerMatch ? '✅' : '❌'}`}`);
+  console.log(
+    '- deployer:' +
+      (deployerMatch == null ? 'no specific one expected 👻' : `${plan.deployer} ${deployerMatch ? '✅' : '❌'}`),
+  );
 
   if (deployerMatch === false) {
     throw new Error('Config deployer does not match deployer expected by plan');

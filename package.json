@@ -4,18 +4,22 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "roar": "DO_NOT_TRACK=1 bun run src/index.ts",
+    "roar": "bun run src/index.ts",
     "rr": "bun roar",
-    "compile": "DO_NOT_TRACK=1 bun build src/index.ts --compile --outfile out/roar",
-    "cc": "bun compile"
+    "compile": "bun build src/index.ts --compile --outfile out/roar",
+    "cc": "bun compile",
+    "format": "bun prettier --write src",
+    "f": "bun format"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
-    "viem": "^2.27.0"
+    "js-yaml": "4.1.0",
+    "viem": "2.28.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.9",
-    "@types/js-yaml": "^4.0.9"
+    "@trivago/prettier-plugin-sort-imports": "5.2.2",
+    "@types/bun": "1.2.11",
+    "@types/js-yaml": "4.0.9",
+    "prettier": "3.5.3"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"

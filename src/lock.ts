@@ -1,6 +1,5 @@
-
-import { Lock } from './type';
 import { checkFileExists, createFileDirectory, loadYaml, saveYaml } from './file';
+import { Lock } from './type';
 
 export const loadLock = async (path: string): Promise<Lock | null> => {
   console.log();
