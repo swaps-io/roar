@@ -1,9 +1,9 @@
 import { createPublicClient, createWalletClient, http } from 'viem';
 
 import { CHAINS } from './chains';
-import { Plan, ChainClients, Lock, Deployer } from './type';
 import { joinPath } from './file';
 import { loadLock, saveLock } from './lock';
+import { ChainClients, Deployer, Lock, Plan } from './type';
 import { joinComma } from './util';
 
 export const resolveChainClients = async (
@@ -25,7 +25,7 @@ export const resolveChainClients = async (
     if (lockChains !== planChains) {
       throw new Error(
         `Lock "${lockPath}" chains "${lockChains}" (${lockChainItems.length}) ` +
-        `are not the same as the plan chains "${planChains}" (${planChainItems.length})`,
+          `are not the same as the plan chains "${planChains}" (${planChainItems.length})`,
       );
     }
   }
@@ -57,10 +57,12 @@ export const resolveChainClients = async (
       nonces: {},
     };
 
-    await Promise.all(chainClients.entries().map(async ([chainName, clients]) => {
-      clients.nonce = await clients.public.getTransactionCount({ address: deployer.address });
-      newLock.nonces[chainName] = clients.nonce;
-    }));
+    await Promise.all(
+      chainClients.entries().map(async ([chainName, clients]) => {
+        clients.nonce = await clients.public.getTransactionCount({ address: deployer.address });
+        newLock.nonces[chainName] = clients.nonce;
+      }),
+    );
 
     await saveLock(lockPath, newLock);
   } else {

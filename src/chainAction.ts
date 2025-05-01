@@ -1,20 +1,27 @@
-import { Address, encodeDeployData, encodeFunctionData, getCreateAddress, toFunctionSelector, toFunctionSignature } from 'viem';
-
 import {
-  ChainClients,
-  DeployStep,
-  CallStep,
-  Step,
-  Action,
-  ArtifactRegistry,
-  ActionTransaction,
-  CallActionResolution,
-  DeployActionResolution,
-  TransferStep,
-  TransferActionResolution,
-} from './type';
-import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
+  Address,
+  encodeDeployData,
+  encodeFunctionData,
+  getCreateAddress,
+  toFunctionSelector,
+  toFunctionSignature,
+} from 'viem';
+
 import { isAddress } from './parse';
+import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
+import {
+  Action,
+  ActionTransaction,
+  ArtifactRegistry,
+  CallActionResolution,
+  CallStep,
+  ChainClients,
+  DeployActionResolution,
+  DeployStep,
+  Step,
+  TransferActionResolution,
+  TransferStep,
+} from './type';
 import { jsonStringify } from './util';
 
 const resolveStepDeploys = (
@@ -236,7 +243,7 @@ const resolveActions = (
     chainActions.set(chainName, actions);
   }
   return chainActions;
-}
+};
 
 export const resolveChainActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,

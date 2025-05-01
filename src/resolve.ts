@@ -1,6 +1,5 @@
 import { AbiFunction, AbiParameter } from 'abitype';
 
-import { Artifact, ArtifactRegistry, DeployValue, ViemValue, Value } from './type';
 import {
   CALL_ARTIFACT,
   CALL_FORCE_SUFFIX,
@@ -11,6 +10,7 @@ import {
   REFERENCE_PREFIX,
   REFERENCE_SEPARATOR,
 } from './constant';
+import { Artifact, ArtifactRegistry, DeployValue, Value, ViemValue } from './type';
 import { joinComma } from './util';
 
 export const resolveCall = (name: string): string => {
@@ -82,8 +82,8 @@ export const resolveArtifact = (
   if (!artifactPath) {
     throw new Error(
       `${description} usage of "${name}" must specify artifact path field ` +
-      `"${CALL_ARTIFACT}" to resolve ambiguity among ${paths.size} path candidates ` +
-      `(${joinComma([...paths].sort())})`
+        `"${CALL_ARTIFACT}" to resolve ambiguity among ${paths.size} path candidates ` +
+        `(${joinComma([...paths].sort())})`,
     );
   }
 
@@ -99,8 +99,8 @@ export const resolveArtifact = (
   const badPath = (): never => {
     throw new Error(
       `${description} usage of "${name}" specifies artifact path ` +
-      `"${artifactPath}" that could not be matched with any of ${paths.size} path candidates ` +
-      `(${joinComma([...paths].sort())})`
+        `"${artifactPath}" that could not be matched with any of ${paths.size} path candidates ` +
+        `(${joinComma([...paths].sort())})`,
     );
   };
 
@@ -140,8 +140,8 @@ export const resolveFunction = (
   if (!signature) {
     throw new Error(
       `${description} to function "${name}" of artifact "${targetName}" must specify ` +
-      `signature field "${CALL_SIGNATURE}" to resolve ambiguity among ${signatures.size} overload candidates ` +
-      `(${joinComma([...signatures].sort())})`
+        `signature field "${CALL_SIGNATURE}" to resolve ambiguity among ${signatures.size} overload candidates ` +
+        `(${joinComma([...signatures].sort())})`,
     );
   }
 
@@ -157,8 +157,8 @@ export const resolveFunction = (
   const badSignature = (): never => {
     throw new Error(
       `${description} to function "${name}" of artifact "${targetName}" specifies signature ` +
-      `"${signature}" that could not be matched with any of ${signatures.size} overload candidates ` +
-      `(${joinComma([...signatures].sort())})`
+        `"${signature}" that could not be matched with any of ${signatures.size} overload candidates ` +
+        `(${joinComma([...signatures].sort())})`,
     );
   };
 
@@ -167,13 +167,10 @@ export const resolveFunction = (
     trySignature(name + signature) ??
     trySignature(`${name}(${signature})`) ??
     badSignature()
-  );
+  ); // prettier-ignore
 };
 
-export const resolveValue = (
-  value: Value,
-  deploys: ReadonlyMap<string, string>,
-): ViemValue => {
+export const resolveValue = (value: Value, deploys: ReadonlyMap<string, string>): ViemValue => {
   if (value instanceof DeployValue) {
     const reference = createReference(value.path);
     const deploy = deploys.get(reference);
@@ -192,10 +189,9 @@ export const resolveValue = (
   }
 
   return Object.fromEntries(
-    Object.entries(value).map(
-      ([name, subvalue]) => [name, resolveValue(subvalue, deploys)],
-    ),
-  );
+    Object.entries(value)
+      .map(([name, subvalue]) => [name, resolveValue(subvalue, deploys)])
+  ); // prettier-ignore
 };
 
 export const resolveArguments = (
@@ -207,7 +203,7 @@ export const resolveArguments = (
   if (args.size > inputs.length) {
     throw new Error(
       `${description} detected unused arguments: ABI specifies ` +
-      `${inputs.length} inputs, but ${args.size} arguments provided`,
+        `${inputs.length} inputs, but ${args.size} arguments provided`,
     );
   }
 

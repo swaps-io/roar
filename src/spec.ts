@@ -1,5 +1,5 @@
-import { Action, Args, ChainActionsSpec, ChainClients, Deployer, PlanSpec } from './type';
 import { createFileDirectory, saveYaml } from './file';
+import { Action, Args, ChainActionsSpec, ChainClients, Deployer, PlanSpec } from './type';
 
 export const generatePlanSpec = (
   args: Args,

@@ -1,12 +1,9 @@
 import { Address, isAddress as isAddressViem } from 'viem';
 
-import { CALL_PREFIX, CALL_IGNORES, CALL_TRANSFER, REFERENCE_PREFIX } from './constant';
+import { CALL_IGNORES, CALL_PREFIX, CALL_TRANSFER, REFERENCE_PREFIX } from './constant';
 
 const isUpperCase = (value: string): boolean => {
-  return ( // 2 checks to handle digits etc
-    value === value.toUpperCase() &&
-    value !== value.toLowerCase()
-  );
+  return value === value.toUpperCase() && value !== value.toLowerCase(); // 2 checks to handle digits etc
 };
 
 export const isContract = (name: string): boolean => {

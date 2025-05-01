@@ -1,12 +1,11 @@
-
-import { Args } from './type';
 import {
-  DEFAULT_PLAN_PATH,
-  DEFAULT_CONFIG_PATH,
   DEFAULT_ARTIFACTS_PATH,
+  DEFAULT_CONFIG_PATH,
   DEFAULT_LOCKS_PATH,
+  DEFAULT_PLAN_PATH,
   DEFAULT_SPEC_PATH,
 } from './constant';
+import { Args } from './type';
 
 export const parseArgs = (): Args => {
   console.log();
@@ -16,10 +15,10 @@ export const parseArgs = (): Args => {
   const usage = (): never => {
     throw new Error(
       'Usage: roar ' +
-      '[--plan <plan-path>] ' +
-      '[--config <config-path>] ' +
-      '[--artifacts <artifacts-path>] ' +
-      '[--locks <locks-path>]',
+        '[--plan <plan-path>] ' +
+        '[--config <config-path>] ' +
+        '[--artifacts <artifacts-path>] ' +
+        '[--locks <locks-path>]',
     );
   };
 
@@ -34,7 +33,7 @@ export const parseArgs = (): Args => {
   const getArgValue = (index: number): string => {
     const value = process.argv[index];
     return value || usage();
-  }
+  };
 
   const getArg = (index: number): void => {
     switch (process.argv[index]) {

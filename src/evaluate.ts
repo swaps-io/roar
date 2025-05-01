@@ -1,12 +1,9 @@
-import { DeployValue, PlanContext, PlanNode, Value } from './type';
-import { isContract, isAddress, isReference } from './parse';
-import { createReference, resolveReference } from './resolve';
 import { REFERENCE_PREFIX } from './constant';
+import { isAddress, isContract, isReference } from './parse';
+import { createReference, resolveReference } from './resolve';
+import { DeployValue, PlanContext, PlanNode, Value } from './type';
 
-const evaluateReference = (
-  ctx: PlanContext,
-  reference: string,
-): Value => {
+const evaluateReference = (ctx: PlanContext, reference: string): Value => {
   let node: PlanNode = ctx.plan;
   let nodeName = REFERENCE_PREFIX;
   const path = resolveReference(reference, ctx.chainName);
@@ -15,9 +12,7 @@ const evaluateReference = (
       throw new Error(`Failed to resolve "${nodeName}" node of "${reference}" reference`);
     }
 
-    node = Array.isArray(node)
-      ? node[Number(name)]
-      : node[name];
+    node = Array.isArray(node) ? node[Number(name)] : node[name];
     nodeName = name;
   }
 
@@ -33,24 +28,16 @@ const evaluateReference = (
   return evaluateNode(ctx, node, path);
 };
 
-export const evaluateNode = (
-  ctx: PlanContext,
-  node: PlanNode,
-  path: readonly string[],
-): Value => {
+export const evaluateNode = (ctx: PlanContext, node: PlanNode, path: readonly string[]): Value => {
   const value = evaluateNodeNull(ctx, node, path);
   if (value == null) {
     throw new Error(`Unexpected null value at "${createReference(path)}"`);
   }
 
   return value;
-}
+};
 
-const evaluateNodeNull = (
-  ctx: PlanContext,
-  node: PlanNode,
-  path: readonly string[],
-): Value | null => {
+const evaluateNodeNull = (ctx: PlanContext, node: PlanNode, path: readonly string[]): Value | null => {
   if (node == null) {
     return null;
   }
@@ -62,27 +49,19 @@ const evaluateNodeNull = (
     return node;
   }
 
-  if (
-    typeof node === 'number' ||
-    typeof node === 'bigint' ||
-    typeof node === 'boolean'
-  ) {
+  if (typeof node === 'number' || typeof node === 'bigint' || typeof node === 'boolean') {
     return node;
   }
 
   if (Array.isArray(node)) {
-    return node.map(
-      (subnode, index) => evaluateNodeNull(ctx, subnode, [...path, `${index}`]),
-    ).filter(
-      (value) => value != null,
-    );
+    return node
+      .map((subnode, index) => evaluateNodeNull(ctx, subnode, [...path, `${index}`]))
+      .filter((value) => value != null);
   }
 
   return Object.fromEntries(
-    Object.entries(node).map(
-      ([name, subnode]) => [name, evaluateNodeNull(ctx, subnode, [...path, name])],
-    ).filter(
-      ([name, value]) => value != null,
-    ),
+    Object.entries(node)
+      .map(([name, subnode]) => [name, evaluateNodeNull(ctx, subnode, [...path, name])])
+      .filter(([name, value]) => value != null),
   );
 };
