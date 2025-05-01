@@ -10,12 +10,13 @@
     "cc": "bun compile"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
-    "viem": "^2.27.0"
+    "js-yaml": "4.1.0",
+    "viem": "2.28.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.9",
-    "@types/js-yaml": "^4.0.9"
+    "@types/bun": "1.2.11",
+    "@types/js-yaml": "4.0.9",
+    "prettier": "3.5.3"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"
