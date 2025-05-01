@@ -134,7 +134,7 @@ const resolveStepActions = (
 
   const toCallAction = (step: CallStep, index: number): Action => {
     const fullName = `${step.target.name}.${step.name}`;
-    const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`
+    const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`;
     const target = resolveValue(step.target.address, deploys);
     if (!isAddress(target)) {
       throw new Error(`${description} has invalid target contract address (${jsonStringify(target)})`);
@@ -178,7 +178,7 @@ const resolveStepActions = (
   };
 
   const toTransferAction = (step: TransferStep, index: number): Action => {
-    const description = `Chain "${chainName}" transfer action at #${index}`
+    const description = `Chain "${chainName}" transfer action at #${index}`;
     const target = resolveValue(step.target.address, deploys);
     if (!isAddress(target)) {
       throw new Error(`${description} has invalid target address (${jsonStringify(target)})`);

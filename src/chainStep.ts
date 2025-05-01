@@ -2,7 +2,7 @@ import { CALL_TARGET, CALL_SIGNATURE, CALL_VALUE, CALL_ARTIFACT } from './consta
 import { PlanNode, Plan, DeployStep, CallStep, Step, PlanContext, TransferStep } from './type';
 import { isCall, isContract, isAddress, isReference, isTransfer } from './parse';
 import { asArgsSpecial, asArtifactSpecial, asSignatureSpecial, asCallTargetSpecial, asTransferTargetSpecial, asValueSpecial } from './special';
-import { resolveCall, resolveReference } from './resolve';
+import { createReference, resolveCall, resolveReference } from './resolve';
 import { evaluateNode } from './evaluate';
 import { mapPop } from './util';
 
@@ -74,6 +74,13 @@ const resolveChainPlanSteps = (
     const args = asArgsSpecial(evaluateNode(ctx, node, path), path);
     const target = asTransferTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET]);
     const value = asValueSpecial(mapPop(args, CALL_VALUE), [...path, CALL_VALUE]);
+
+    if (args.size > 0) {
+      throw new Error(
+        `Unused arguments detected at "${createReference(path)}": ` +
+        `transfer only accepts target and value, but ${args.size} extra arguments provided`
+      );
+    }
 
     const step: TransferStep = {
       type: 'transfer',
