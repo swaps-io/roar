@@ -1,3 +1,5 @@
+import { size } from 'viem';
+
 import { Action, ActionTransaction, ChainClients, ConfigExecution } from './type';
 
 const executeSingleChainAction = async (
@@ -43,12 +45,29 @@ const executeSingleChainAction = async (
 
         const receipt = await clients.public.waitForTransactionReceipt({ hash });
         console.log(`Action #${actionIndex} (${totalActions}) on chain "${chainName}" transaction receipt:`);
-        console.log(`- hash: ${hash}`);
-        console.log(`- block: ${receipt.blockNumber}`);
+        console.log(`- hash: ${receipt.transactionHash}`);
+        console.log(`- status: ${receipt.status}` + (receipt.status === 'reverted' ? ' ⚠️' : ''));
+        console.log(`- block number: ${receipt.blockNumber}`);
+        console.log(`- block hash: ${receipt.blockHash}`);
         console.log(`- gas used: ${receipt.gasUsed}`);
         console.log(`- gas price: ${receipt.effectiveGasPrice}`);
-        if (receipt.contractAddress) {
+        if (receipt.contractAddress != null) {
           console.log(`- contract: ${receipt.contractAddress}`);
+        }
+        console.log(`- logs (${receipt.logs.length}):`);
+        for (let index = 0; index < receipt.logs.length; index++) {
+          const log = receipt.logs[index];
+          console.log(`  - log #${index}:`);
+          if (log.removed) {
+            console.log('    - status: removed ⚠️');
+          }
+          console.log(`    - index: ${log.logIndex}`);
+          console.log(`    - emitter: ${log.address}`);
+          console.log(`    - topics (${log.topics.length}):`);
+          for (let topicIndex = 0; topicIndex < log.topics.length; topicIndex++) {
+            console.log(`      - topic #${topicIndex}: ${log.topics[topicIndex]}`);
+          }
+          console.log(`    - data (${size(log.data)}): ${log.data}`);
         }
       } else if (nonce > transaction.nonce) {
         console.log(
