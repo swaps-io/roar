@@ -10,7 +10,18 @@ import {
   REFERENCE_PREFIX,
   REFERENCE_SEPARATOR,
 } from './constant';
-import { Artifact, ArtifactRegistry, DeployValue, Value, ViemValue } from './type';
+import { encodeCall } from './encodeCall';
+import { encodeDeploy } from './encodeDeploy';
+import {
+  Artifact,
+  ArtifactRegistry,
+  CallEncodeValue,
+  DeployEncodeValue,
+  DeployRegistry,
+  DeployValue,
+  Value,
+  ViemValue,
+} from './type';
 import { joinComma } from './util';
 
 export const resolveCall = (name: string): string => {
@@ -115,12 +126,43 @@ export const resolveArtifact = (
 };
 
 export const resolveFunction = (
-  name: string,
+  name: string | undefined,
   targetName: string,
   signature: string | undefined,
   artifact: Artifact,
   description: string,
 ): AbiFunction => {
+  if (name == null) {
+    if (signature == null) {
+      throw new Error(
+        `${description} to anonymous function of artifact "${targetName}" must specify signature ` +
+          `field "${CALL_SIGNATURE}" containing function name or full signature to resolve the call`,
+      );
+    }
+
+    const func = artifact.functions.get(signature);
+    if (func != null) {
+      return func;
+    }
+
+    const signatures = artifact.resolutions.get(signature);
+    if (signatures == null) {
+      throw new Error(`${description} targets function "${signature}" missing in artifact "${targetName}"`);
+    }
+
+    if (signatures.size === 1) {
+      const signature = [...signatures][0];
+      const func = artifact.functions.get(signature)!;
+      return func;
+    }
+
+    throw new Error(
+      `${description} to function "${signature}" of artifact "${targetName}" must specify full signature ` +
+        `in "${CALL_SIGNATURE}" field to resolve ambiguity among ${signatures.size} overload candidates ` +
+        `(${joinComma([...signatures].sort())})`,
+    );
+  }
+
   const func = artifact.functions.get(name);
   if (func != null) {
     return func;
@@ -170,7 +212,14 @@ export const resolveFunction = (
   ); // prettier-ignore
 };
 
-export const resolveValue = (value: Value, deploys: ReadonlyMap<string, string>): ViemValue => {
+export interface ResolveValueParams {
+  value: Value;
+  deploys: DeployRegistry;
+  artifacts: ArtifactRegistry;
+  description: string;
+}
+
+export const resolveValue = ({ value, deploys, artifacts, description }: ResolveValueParams): ViemValue => {
   if (value instanceof DeployValue) {
     const reference = createReference(value.path);
     const deploy = deploys.get(reference);
@@ -180,26 +229,60 @@ export const resolveValue = (value: Value, deploys: ReadonlyMap<string, string>)
     throw new Error(`Failed to resolve deploy contract reference "${reference}"`);
   }
 
+  if (value instanceof DeployEncodeValue) {
+    const { data } = encodeDeploy({
+      name: value.target.name,
+      args: value.args,
+      artifact: value.artifact,
+      deploys,
+      artifacts,
+      description,
+    });
+    return data;
+  }
+
+  if (value instanceof CallEncodeValue) {
+    const { data } = encodeCall({
+      targetName: value.target.name,
+      args: value.args,
+      signature: value.signature,
+      artifact: value.artifact,
+      deploys,
+      artifacts,
+      description,
+    });
+    return data;
+  }
+
   if (typeof value !== 'object') {
     return value;
   }
 
   if (Array.isArray(value)) {
-    return value.map((subvalue) => resolveValue(subvalue, deploys));
+    return value.map((subvalue) => resolveValue({ value: subvalue, deploys, artifacts, description }));
   }
 
   return Object.fromEntries(
     Object.entries(value)
-      .map(([name, subvalue]) => [name, resolveValue(subvalue, deploys)])
+      .map(([name, subvalue]) => [name, resolveValue({ value: subvalue, deploys, artifacts, description })])
   ); // prettier-ignore
 };
 
-export const resolveArguments = (
-  args: ReadonlyMap<string, Value>,
-  inputs: readonly AbiParameter[],
-  deploys: ReadonlyMap<string, string>,
-  description: string,
-): ViemValue[] => {
+export interface ResolveArgumentsParams {
+  args: ReadonlyMap<string, Value>;
+  inputs: readonly AbiParameter[];
+  deploys: DeployRegistry;
+  artifacts: ArtifactRegistry;
+  description: string;
+}
+
+export const resolveArguments = ({
+  args,
+  inputs,
+  deploys,
+  artifacts,
+  description,
+}: ResolveArgumentsParams): ViemValue[] => {
   if (args.size > inputs.length) {
     throw new Error(
       `${description} detected unused arguments: ABI specifies ` +
@@ -220,7 +303,7 @@ export const resolveArguments = (
       throw new Error(`${description} does not provide argument "${name}" required by ABI inputs`);
     }
 
-    const value = resolveValue(arg, deploys);
+    const value = resolveValue({ value: arg, deploys, artifacts, description });
     values.push(value);
   }
   return values;

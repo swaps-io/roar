@@ -1,14 +1,9 @@
-import {
-  Address,
-  encodeDeployData,
-  encodeFunctionData,
-  getCreateAddress,
-  toFunctionSelector,
-  toFunctionSignature,
-} from 'viem';
+import { Address, getCreateAddress } from 'viem';
 
+import { encodeCall } from './encodeCall';
+import { encodeDeploy } from './encodeDeploy';
 import { isAddress } from './parse';
-import { createReference, resolveArguments, resolveArtifact, resolveFunction, resolveValue } from './resolve';
+import { createReference, resolveValue } from './resolve';
 import {
   Action,
   ActionTransaction,
@@ -17,6 +12,7 @@ import {
   CallStep,
   ChainClients,
   DeployActionResolution,
+  DeployRegistry,
   DeployStep,
   Step,
   TransferActionResolution,
@@ -24,12 +20,7 @@ import {
 } from './type';
 import { jsonStringify } from './util';
 
-const resolveStepDeploys = (
-  steps: readonly Step[],
-  from: Address,
-  nonce: number,
-  deploys: Map<string, string>,
-): void => {
+const resolveStepDeploys = (steps: readonly Step[], from: Address, nonce: number, deploys: DeployRegistry): void => {
   for (let index = 0; index < steps.length; index++) {
     const step = steps[index];
     if (step.type !== 'deploy') {
@@ -52,8 +43,8 @@ const resolveStepDeploys = (
 const resolveDeploys = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
-): Map<string, string> => {
-  const deploys = new Map<string, string>();
+): DeployRegistry => {
+  const deploys: DeployRegistry = new Map();
   for (const [chainName, steps] of chainSteps) {
     const clients = chainClients.get(chainName)!;
     const from = clients.wallet.account.address;
@@ -96,29 +87,28 @@ const logTransaction = (transaction: ActionTransaction): void => {
 const resolveStepActions = (
   chainName: string,
   steps: readonly Step[],
-  deploys: ReadonlyMap<string, string>,
+  deploys: DeployRegistry,
   nonce: number,
   artifacts: ArtifactRegistry,
 ): Action[] => {
   const toDeployAction = (step: DeployStep, index: number): Action => {
     const reference = createReference(step.path);
     const description = `Chain "${chainName}" deploy of "${step.name}" action at #${index}`;
-    const artifact = resolveArtifact(step.name, step.artifact, artifacts, description);
-    const abi = artifact.constructor == null ? [] : [artifact.constructor];
-    const inputs = abi.flatMap((a) => a.inputs);
-    const args = resolveArguments(step.args, inputs, deploys, description);
 
-    const data = encodeDeployData({
-      bytecode: artifact.bytecode,
-      abi,
-      args,
+    const { data, args, artifact } = encodeDeploy({
+      name: step.name,
+      args: step.args,
+      artifact: step.artifact,
+      deploys,
+      artifacts,
+      description,
     });
 
     const resolution: DeployActionResolution = {
       type: 'deploy',
       name: step.name,
-      reference: reference,
-      artifact: artifact.path,
+      reference,
+      artifact,
       arguments: jsonStringify(args),
       address: deploys.get(reference)!,
     };
@@ -142,29 +132,28 @@ const resolveStepActions = (
   const toCallAction = (step: CallStep, index: number): Action => {
     const fullName = `${step.target.name}.${step.name}`;
     const description = `Chain "${chainName}" call of "${fullName}" action at #${index}`;
-    const target = resolveValue(step.target.address, deploys);
+    const target = resolveValue({ value: step.target.address, deploys, artifacts, description });
     if (!isAddress(target)) {
       throw new Error(`${description} has invalid target contract address (${jsonStringify(target)})`);
     }
 
-    const artifact = resolveArtifact(step.target.name, step.artifact, artifacts, description);
-    const func = resolveFunction(step.name, step.target.name, step.signature, artifact, description);
-
-    const abi = [func] as const;
-    const inputs = abi.flatMap((a) => a.inputs);
-    const args = resolveArguments(step.args, inputs, deploys, description);
-
-    const data = encodeFunctionData({
-      abi,
-      args,
+    const { data, args, artifact, signature, selector } = encodeCall({
+      name: step.name,
+      targetName: step.target.name,
+      args: step.args,
+      signature: step.signature,
+      artifact: step.artifact,
+      deploys,
+      artifacts,
+      description,
     });
 
     const resolution: CallActionResolution = {
       type: 'call',
       name: fullName,
-      artifact: artifact.path,
-      function: toFunctionSignature(abi[0]),
-      selector: toFunctionSelector(abi[0]),
+      artifact,
+      function: signature,
+      selector,
       arguments: jsonStringify(args),
     };
     logCallResolution(resolution);
@@ -186,7 +175,7 @@ const resolveStepActions = (
 
   const toTransferAction = (step: TransferStep, index: number): Action => {
     const description = `Chain "${chainName}" transfer action at #${index}`;
-    const target = resolveValue(step.target.address, deploys);
+    const target = resolveValue({ value: step.target.address, deploys, artifacts, description });
     if (!isAddress(target)) {
       throw new Error(`${description} has invalid target address (${jsonStringify(target)})`);
     }
@@ -233,7 +222,7 @@ const resolveActions = (
   chainSteps: ReadonlyMap<string, readonly Step[]>,
   chainClients: ReadonlyMap<string, ChainClients>,
   artifacts: ArtifactRegistry,
-  deploys: ReadonlyMap<string, string>,
+  deploys: DeployRegistry,
 ): Map<string, Action[]> => {
   console.log();
   const chainActions = new Map<string, Action[]>();

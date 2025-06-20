@@ -1,6 +1,7 @@
 import { isAddress, isContract } from './parse';
 import { createReference } from './resolve';
-import { CallTarget, DeployValue, TransferTarget, Value } from './type';
+import { SubpathGetter } from './subpath';
+import { CallTarget, DeployValue, EncodeTarget, TransferTarget, Value } from './type';
 
 export const asArgsSpecial = (value: Value, path: readonly string[]): Map<string, Value> => {
   if (typeof value !== 'object' || Array.isArray(value) || value instanceof DeployValue) {
@@ -25,11 +26,7 @@ const asTargetAddress = (value: Value | undefined, path: readonly string[]): str
   return value;
 };
 
-const asTargetName = (
-  value: Value | undefined,
-  path: readonly string[],
-  getSubpath: () => readonly string[] | null,
-): string => {
+const asTargetName = (value: Value | undefined, path: readonly string[], getSubpath: SubpathGetter): string => {
   if (value instanceof DeployValue) {
     const name = value.path[value.path.length - 1];
     return name;
@@ -51,6 +48,21 @@ const asTargetName = (
   return name;
 };
 
+export const asCallTargetSpecial = (
+  value: Value | undefined,
+  path: readonly string[],
+  getSubpath: SubpathGetter,
+): CallTarget => {
+  const address = asTargetAddress(value, path);
+  const name = asTargetName(value, path, getSubpath);
+
+  const target: CallTarget = {
+    name,
+    address,
+  };
+  return target;
+};
+
 export const asTransferTargetSpecial = (value: Value | undefined, path: readonly string[]): TransferTarget => {
   const address = asTargetAddress(value, path);
 
@@ -60,17 +72,15 @@ export const asTransferTargetSpecial = (value: Value | undefined, path: readonly
   return target;
 };
 
-export const asCallTargetSpecial = (
+export const asEncodeTargetSpecial = (
   value: Value | undefined,
   path: readonly string[],
-  getSubpath: () => readonly string[] | null,
-): CallTarget => {
-  const address = asTargetAddress(value, path);
+  getSubpath: SubpathGetter,
+): EncodeTarget => {
   const name = asTargetName(value, path, getSubpath);
 
-  const target: CallTarget = {
+  const target: EncodeTarget = {
     name,
-    address,
   };
   return target;
 };

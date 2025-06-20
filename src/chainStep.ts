@@ -1,7 +1,7 @@
 import { CALL_ARTIFACT, CALL_SIGNATURE, CALL_TARGET, CALL_VALUE } from './constant';
 import { evaluateNode } from './evaluate';
-import { isAddress, isCall, isContract, isReference, isTransfer } from './parse';
-import { createReference, resolveCall, resolveReference } from './resolve';
+import { isAddress, isCall, isContract, isTransfer } from './parse';
+import { createReference, resolveCall } from './resolve';
 import {
   asArgsSpecial,
   asArtifactSpecial,
@@ -10,6 +10,7 @@ import {
   asTransferTargetSpecial,
   asValueSpecial,
 } from './special';
+import { makeSubpathGetter } from './subpath';
 import { CallStep, DeployStep, Plan, PlanContext, PlanNode, Step, TransferStep } from './type';
 import { mapPop } from './util';
 
@@ -42,21 +43,10 @@ const resolveChainPlanSteps = (chainName: string, chainPlan: Plan, plan: Plan): 
   };
 
   const visitCall = (name: string, node: PlanNode, path: readonly string[]): void => {
-    const getTargetSubpath = (): string[] | null => {
-      if (node == null || typeof node !== 'object' || Array.isArray(node)) {
-        return null;
-      }
-
-      const subnode = node[CALL_TARGET];
-      if (typeof subnode !== 'string' || !isReference(subnode)) {
-        return null;
-      }
-
-      return resolveReference(subnode, chainName);
-    };
+    const getSubpath = makeSubpathGetter(node, CALL_TARGET, chainName);
 
     const args = asArgsSpecial(evaluateNode(ctx, node, path), path);
-    const target = asCallTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET], getTargetSubpath);
+    const target = asCallTargetSpecial(mapPop(args, CALL_TARGET), [...path, CALL_TARGET], getSubpath);
     const value = asValueSpecial(mapPop(args, CALL_VALUE), [...path, CALL_VALUE]);
     const signature = asSignatureSpecial(mapPop(args, CALL_SIGNATURE), [...path, CALL_SIGNATURE]);
     const artifact = asArtifactSpecial(mapPop(args, CALL_ARTIFACT), [...path, CALL_ARTIFACT]);

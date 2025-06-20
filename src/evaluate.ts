@@ -1,7 +1,10 @@
-import { REFERENCE_PREFIX } from './constant';
+import { CALL_ARTIFACT, CALL_ENCODE, CALL_SIGNATURE, REFERENCE_PREFIX } from './constant';
 import { isAddress, isContract, isReference } from './parse';
 import { createReference, resolveReference } from './resolve';
-import { DeployValue, PlanContext, PlanNode, Value } from './type';
+import { asArgsSpecial, asArtifactSpecial, asEncodeTargetSpecial, asSignatureSpecial } from './special';
+import { makeSubpathGetter } from './subpath';
+import { CallEncodeValue, DeployEncodeValue, DeployValue, PlanContext, PlanNode, Value } from './type';
+import { mapPop } from './util';
 
 const evaluateReference = (ctx: PlanContext, reference: string): Value => {
   let node: PlanNode = ctx.plan;
@@ -59,6 +62,25 @@ const evaluateNodeNull = (ctx: PlanContext, node: PlanNode, path: readonly strin
     return node
       .map((subnode, index) => evaluateNodeNull(ctx, subnode, [...path, `${index}`]))
       .filter((value) => value != null);
+  }
+
+  if (CALL_ENCODE in node) {
+    // Prevent node evaluate recursion.
+    const evalNode = { ...node };
+    delete evalNode[CALL_ENCODE];
+
+    const getSubpath = makeSubpathGetter(node, CALL_ENCODE, ctx.chainName);
+
+    const args = asArgsSpecial(evaluateNode(ctx, evalNode, path), path);
+    const target = asEncodeTargetSpecial(mapPop(args, CALL_ENCODE), [...path, CALL_ENCODE], getSubpath);
+    const artifact = asArtifactSpecial(mapPop(args, CALL_ARTIFACT), [...path, CALL_ARTIFACT]);
+
+    if (CALL_SIGNATURE in node) {
+      const signature = asSignatureSpecial(mapPop(args, CALL_SIGNATURE), [...path, CALL_SIGNATURE]);
+      return new CallEncodeValue(target, args, signature, artifact);
+    }
+
+    return new DeployEncodeValue(target, args, artifact);
   }
 
   return Object.fromEntries(

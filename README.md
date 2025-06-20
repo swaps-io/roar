@@ -208,7 +208,7 @@ base:
       firstBytes32Param: '0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff'
       secondUint256Param: 1234567890
 
-  three:
+  four:
     $someFunctionWithOverload:
       $: $.nested.ManyCallsContract
       $sig: bytes32,uint256  # And another one - without braces around parameters
@@ -252,7 +252,7 @@ sonic:
 blast:
   VeryInterestingContract: '0xcececececececececececececececececececece'
 
-  $val$:  # Special `$val`, `$sig`, and `$art` are not called by default. Add `$` suffix if matching function call needed
+  $val$:  # Special `$val`, `$sig`, etc are not called by default. Add `$` suffix if matching function call needed
     $: $.VeryInterestingContract
     parameter: '0xf8c2517f965c3b'
 
@@ -278,6 +278,22 @@ linea:
   c:
     SomeAmbiguousContract:
       $art: artifacts/somepath/SomeAmbiguousContract.sol  # Another variant
+```
+
+### _Contract call with encoded data param_
+
+```yaml
+bera:
+  ProxyContract: '0xabcabcabcabcabcabcabcabcabcabcabcabcabca'
+
+  $callAnotherContract:
+    $: $.ProxyContract
+    target: '0x8800880088008800880088008800880088008800'
+    data:  # Parameter must be of type `bytes` - otherwise type mismatch error will be thrown
+      $enc: $.AnotherContractToCall  # The `$enc` key indicates function call (or contract deploy) data encode target
+      $sig: someFunctionWithParameters  # Signature must be provided to encode function call data (just name or full)
+      parameter: 123456
+      anotherParameter: 'hello world'
 ```
 
 #### _Don't Repeat Yourself with YAML anchors_

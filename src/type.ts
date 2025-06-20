@@ -46,6 +46,8 @@ export type ArtifactRegistry = {
   resolutions: Map<string, Set<string>>;
 };
 
+export type DeployRegistry = Map<string, string>;
+
 export type Deployer = PrivateKeyAccount;
 
 export type ChainClients = {
@@ -57,8 +59,26 @@ export type ChainClients = {
 export class DeployValue {
   public constructor(public readonly path: readonly string[]) {}
 }
+
+export class DeployEncodeValue {
+  public constructor(
+    public readonly target: EncodeTarget,
+    public readonly args: Map<string, Value>,
+    public readonly artifact: string | undefined,
+  ) {}
+}
+
+export class CallEncodeValue {
+  public constructor(
+    public readonly target: EncodeTarget,
+    public readonly args: Map<string, Value>,
+    public readonly signature: string | undefined,
+    public readonly artifact: string | undefined,
+  ) {}
+}
+
 export type ViemValue = boolean | number | bigint | string | ViemValue[] | { [key: string]: ViemValue };
-export type Value = ViemValue | DeployValue | Value[] | { [key: string]: Value };
+export type Value = ViemValue | DeployValue | DeployEncodeValue | CallEncodeValue | Value[] | { [key: string]: Value };
 
 export type CallTarget = {
   name: string;
@@ -67,6 +87,10 @@ export type CallTarget = {
 
 export type TransferTarget = {
   address: string | DeployValue;
+};
+
+export type EncodeTarget = {
+  name: string;
 };
 
 export type DeployStep = {
