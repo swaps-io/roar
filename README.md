@@ -22,6 +22,18 @@ Contract deployment management tool.
 >
 > _Before_ running `tee` command make sure the log file _folder exists_. Otherwise _no_ log file will be created.
 
+> [!TIP]
+>
+> Use `make` utility for convenient file structure. Running `make t=some/sub/folder` will:
+>
+> - _read plan_ from `plans/some/sub/folder/plan.yaml`
+> - generate spec to `specs/some/sub/folder/spec.yaml`
+> - preserve logs to `logs/some/sub/folder/logs.txt`
+> - generate readme to `docs/some/sub/folder/README.md`
+>
+> I.e. only `plans/some/sub/folder/plan.yaml` should be provided, the reset of the content (including sub-folders) will
+> be generated automatically.
+
 ## Arguments
 
 The `roar` tool allows to override defaults with the following command line arguments:

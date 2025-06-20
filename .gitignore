@@ -27,6 +27,9 @@ specs
 .env.production.local
 .env.local
 config.yaml
+
+# Docs
+docs
 __notes__
 
 # Caches
