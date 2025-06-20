@@ -27,6 +27,7 @@ specs
 .env.production.local
 .env.local
 config.yaml
+__notes__
 
 # Caches
 .eslintcache
