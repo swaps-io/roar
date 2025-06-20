@@ -30,6 +30,7 @@ Contract deployment management tool.
 > - generate spec to `specs/some/sub/folder/spec.yaml`
 > - preserve logs to `logs/some/sub/folder/logs.txt`
 > - generate readme to `docs/some/sub/folder/README.md`
+> - copy created files to `latest` folder
 >
 > I.e. only `plans/some/sub/folder/plan.yaml` should be provided, the reset of the content (including sub-folders) will
 > be generated automatically.

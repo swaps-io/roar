@@ -3,6 +3,7 @@
 # - generate spec to `specs/some/sub/folder/spec.yaml`
 # - preserve logs to `logs/some/sub/folder/logs.txt`
 # - generate readme to `docs/some/sub/folder/README.md`
+# - copy created files to `latest` folder
 
 .PHONY: roar
 roar:
@@ -10,5 +11,7 @@ roar:
 	mkdir -p docs/$(t)
 	printf "# \`$(t)\`\n\n[_⬅ Back to project_](../README.md)\n\n## Description\n\nTODO: provide description.\n\n## Files\n\n- [Plan](plan.yaml)\n- [Spec](spec.yaml)\n- [Logs](logs.txt)\n\n## Sources\n\nTODO: provide sources.\n\n- \`https://github.com\`\n" > docs/$(t)/README.md
 	bun roar --plan plans/$(t)/plan.yaml --spec specs/$(t)/spec.yaml 2>&1 | tee logs/$(t)/logs.txt
+	mkdir -p latest
+	cp plans/$(t)/plan.yaml specs/$(t)/spec.yaml logs/$(t)/logs.txt docs/$(t)/README.md latest
 
 .DEFAULT_GOAL := roar
