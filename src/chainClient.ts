@@ -1,6 +1,7 @@
 import { createPublicClient, createWalletClient, http } from 'viem';
 
 import { CHAINS } from './chains';
+import { CHAIN_ID_KEY } from './constant';
 import { joinPath } from './file';
 import { loadLock, saveLock } from './lock';
 import { ChainClients, Deployer, Lock, Plan } from './type';
@@ -31,8 +32,11 @@ export const resolveChainClients = async (
   }
 
   const chainClients = new Map<string, ChainClients>();
-  for (const chainName of chainPlans.keys()) {
-    const chain = CHAINS.get(chainName)!;
+  for (const [chainName, chainPlan] of chainPlans) {
+    // Chain ID key presence and registry existence are validated in `extractChainPlans`.
+    const id = chainPlan[CHAIN_ID_KEY] as number;
+    const chain = CHAINS.get(id)!;
+
     const transport = http();
     const publicClient = createPublicClient({
       chain,
@@ -74,7 +78,7 @@ export const resolveChainClients = async (
   console.log();
   console.log(`Chain clients (${chainClients.size}):`);
   for (const [chainName, clients] of chainClients) {
-    const chain = CHAINS.get(chainName)!;
+    const chain = clients.public.chain;
     console.log(`- ${chainName}:`);
     console.log(`  - id: ${chain.id}`);
     console.log(`  - name: ${chain.name}`);

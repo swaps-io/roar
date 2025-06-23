@@ -81,14 +81,16 @@ Plan file is `plan.yaml` by [default](#arguments).
 #### _Simple_
 
 ```yaml
-ethereum:  # Chain names are recognized by `roar`
+ethereum:
+  id: 1  # Chains are recognized by `id` field
   SimpleContract: {}
 ```
 
 #### _Parameters_
 
 ```yaml
-ethereum:
+binance:
+  id: 56
   ParametrizedContract:  # Contracts are recognized by capital letter
     someParameter: 123
     anotherParameter: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
@@ -104,6 +106,7 @@ ethereum:
 deployer: '0x1111111111111111111111111111111111111111'  # Special field - address is verified against config
 
 arbitrum:
+  id: 42161
   ContractThatKnowsDeployer:
     owner: $deployer  # References start with `$` (starts at plan's "root")
 ```
@@ -125,7 +128,8 @@ constants:
       anotherValue: 7777777
     - 12345
 
-binance:
+core:
+  id: 1116
   FancyConstantContract:
     numberParameter: $constants.anyNameReally.someValue  # Reference nested keys are separated with `.`
     arrayParameter: $constants.coolArrayValue
@@ -137,6 +141,7 @@ binance:
 
 ```yaml
 polygon:
+  id: 137
   ThisContractIsFirst:
     addressOfSecond: $polygon.ThisContractIsSecond  # Address of contract that's yet to be deployed next
   ThisContractIsSecond:
@@ -147,6 +152,8 @@ polygon:
 
 ```yaml
 gnosis:
+  id: 100
+
   chainNestedConstant:
     whyNot: 'abcdef'
 
@@ -157,6 +164,8 @@ gnosis:
     theirContract: $avalanche.ContractOnSecondContinent
 
 avalanche:
+  id: 43114
+
   ContractOnSecondContinent:
     contractOnOtherChain: $gnosis.ContractOnFirstContinent
     letsUseTheirConstant: $gnosis.chainNestedConstant.whyNot
@@ -166,6 +175,8 @@ avalanche:
 
 ```yaml
 optimism:
+  id: 10
+
   ThisContractNeedsCall: {}
 
   $thisIsContractFunctionName:  # Key staring with `$` indicates this is a call to specified function name
@@ -185,6 +196,8 @@ optimism:
 
 ```yaml
 base:
+  id: 8453
+
   nested:  # Contracts and calls can be nested like constants
     ManyCallsContract: {}
 
@@ -220,6 +233,8 @@ base:
 
 ```yaml
 bob:
+  id: 60808
+
   CallableContract: '0x4242424242424242424242424242424242424242'
 
   $someFunction:
@@ -241,6 +256,7 @@ bob:
 
 ```yaml
 sonic:
+  id: 146
   $$:  # Special `$$` key indicating native value transfer to target address
     $: '0x4242424242424242424242424242424242424242'
     $val: 133713371337
@@ -250,6 +266,8 @@ sonic:
 
 ```yaml
 blast:
+  id: 81457
+
   VeryInterestingContract: '0xcececececececececececececececececececece'
 
   $val$:  # Special `$val`, `$sig`, etc are not called by default. Add `$` suffix if matching function call needed
@@ -267,6 +285,8 @@ blast:
 
 ```yaml
 linea:
+  id: 59144
+
   a:
     SomeAmbiguousContract:
       $art: artifacts/somepath/SomeAmbiguousContract.sol/SomeAmbiguousContract.json  # Artifact full file path resolution
@@ -284,6 +304,8 @@ linea:
 
 ```yaml
 bera:
+  id: 80094
+
   ProxyContract: '0xabcabcabcabcabcabcabcabcabcabcabcabcabca'
 
   $callAnotherContract:
@@ -308,14 +330,17 @@ template:
       anotherParameter: '322322322'
 
 fantom:
+  id: 250
   coolAddress: '0x1337133713371337133713371337133713371337'
   SomeRepeatingContract: *repeating-contract
 
 mode:
+  id: 34443
   coolAddress: '0x9773977397739773977397739773977397739773'
   SomeRepeatingContract: *repeating-contract
 
 zkevm:
+  id: 1101
   coolAddress: '0x0505050505050505050505050505050505050505'
   SomeRepeatingContract:
     <<: *repeating-contract
@@ -326,18 +351,21 @@ The plan above is equivalent to:
 
 ```yaml
 fantom:
+  id: 250
   coolAddress: '0x1337133713371337133713371337133713371337'
   SomeRepeatingContract:
     someAddressParameter: $.coolAddress
     anotherParameter: '322322322'
 
 mode:
+  id: 34443
   coolAddress: '0x9773977397739773977397739773977397739773'
   SomeRepeatingContract:
     someAddressParameter: $.coolAddress
     anotherParameter: '322322322'
 
 zkevm:
+  id: 1101
   coolAddress: '0x0505050505050505050505050505050505050505'
   SomeRepeatingContract:
     someAddressParameter: $.coolAddress
@@ -356,5 +384,5 @@ Artifacts folder is `artifacts` by [default](#arguments).
 
 ## Chains
 
-Chain names to use in [plan](#plan) can be found in the [`src/chains.ts`](src/chains.ts) registry. New elements can be
-added according to needs.
+An object on [plan's](#plan) top level is recognized as a chain with nested instructions if it has `id` field.
+The registry of chains and their IDs is provided by current version of [Viem](https://viem.sh) library.

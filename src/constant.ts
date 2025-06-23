@@ -4,6 +4,9 @@ export const DEFAULT_ARTIFACTS_PATH = 'artifacts';
 export const DEFAULT_LOCKS_PATH = 'locks';
 export const DEFAULT_SPEC_PATH = '';
 
+export const DEPLOYER_KEY = 'deployer';
+export const CHAIN_ID_KEY = 'id';
+
 export const CALL_PREFIX = '$';
 export const CALL_TARGET = '$';
 export const CALL_SIGNATURE = '$sig';
