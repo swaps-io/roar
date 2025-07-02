@@ -29,7 +29,7 @@ export const generatePlanSpec = (
         id: clients.public.chain.id,
         key: chainName,
         name: clients.public.chain.name,
-        rpcs: clients.public.chain.rpcUrls.default.http,
+        rpc: clients.public.transport.displayUrl,
       },
       deployer: {
         address: clients.wallet.account.address,

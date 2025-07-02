@@ -63,6 +63,19 @@ execution:
   dryRun: true  # Should dry mode be enabled. Prevents actual on-chain transactions. Useful for debugging
   retryDelay: 8000  # Time in milliseconds to sleep before retry failed action execution
   nonceBehindRetries: 15  # Number of reties to wait for nonce sync. Then retreats to previous action
+
+rpc:  # By default all RPC URLs come from Viem library. Here custom RPCs can be specified
+  url: https://%ID%.rpc.thirdweb.com  # Top-level URL becomes default for all chains below. `%ID%` is replaced with `id`
+  binance:  # Keys are for convenience and do not affect assignment
+    id: 56  # Chain ID to set RPC URL for. When no `url` provided, the default one (`rpc.url`) will be used
+  ethereum:
+    id: 1
+    url: https://eth.merkle.io  # Per-chain URLs override the default one (`rpc.url`)
+  polygon:
+    id: 137
+    url: https://polygon-rpc.com
+    show: true  # Can RPC URL be shown in logs. By default all custom RPCs are considered sensitive - thus masked.
+                # This flag can be also specified on `rpc` level (like `url`) to assign as the default value
 ```
 
 Config file is `config.yaml` by [default](#arguments).

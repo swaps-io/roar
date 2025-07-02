@@ -18,7 +18,7 @@ const main = async (): Promise<void> => {
   const artifacts = await loadArtifacts(args.artifactsPath);
 
   const chainPlans = extractChainPlans(plan);
-  const chainClients = await resolveChainClients(deployer, chainPlans, args.locksPath, args.planPath);
+  const chainClients = await resolveChainClients(config.rpc, deployer, chainPlans, args.locksPath, args.planPath);
   const chainSteps = resolveChainSteps(plan, chainPlans);
   const chainActions = resolveChainActions(chainSteps, chainClients, artifacts);
 

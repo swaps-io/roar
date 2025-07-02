@@ -19,9 +19,18 @@ export type ConfigExecution = {
   nonceBehindRetries: number;
 };
 
+export type ConfigAnRpc = {
+  id: number;
+  url?: string;
+  show?: boolean;
+};
+
+export type ConfigRpc = Omit<ConfigAnRpc, 'id'> & Record<string, ConfigAnRpc>;
+
 export type Config = {
   deployer: ConfigDeployer;
   execution: ConfigExecution;
+  rpc: ConfigRpc;
 };
 
 export type PlanNode = string | number | boolean | null | PlanNode[] | { [key: string]: PlanNode };
@@ -172,7 +181,7 @@ export type ChainSpec = {
   id: number;
   key: string;
   name: string;
-  rpcs: readonly string[];
+  rpc: string;
 };
 
 export interface ChainDeployerSpec {
